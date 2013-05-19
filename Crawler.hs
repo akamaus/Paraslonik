@@ -1,27 +1,43 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 import Network.HTTP
+import Network.URI
+
+import Data.Encoding
+
 import Text.HTML.TagSoup
 
 import Data.List
+
 import Prelude hiding (catch)
 import Control.Exception (IOException, catch)
 
-downloadURL :: String -> IO (Either String String)
-downloadURL url =
-  do resp <- simpleHTTP (getRequest url)
+-- скачивает URL, определяет кодировку
+downloadURL :: URI -> IO (Either String (DynEncoding,String))
+downloadURL uri =
+  do resp <- simpleHTTP (mkRequest GET uri)
      case resp of
        Left x -> return $ Left ("Error connecting: " ++ show x)
-       Right r -> 
+       Right r ->
          case rspCode r of
-           (2,_,_) -> return $ Right (rspBody r)
+           (2,_,_) -> case determine_encoding r of
+             Just enc -> return $ Right (enc, rspBody r)
+             Nothing -> return $ Left "couldn't determine encoding"
            (3,_,_) ->
              -- HTTP Redirect
              case findHeader HdrLocation r of
                Nothing -> return $ Left (show r)
-               Just url -> downloadURL url
+               Just str -> case parseURI str of
+                 Just uri -> downloadURL uri
            _ -> return $ Left (show r)
  `catch` (\(exn :: IOException) -> return $ Left "connection failed")
+   where determine_encoding resp = do
+           str <- findHeader HdrContentType resp
+           let charset = "charset="
+           res <- find (charset `isInfixOf`) . inits . map toLower str
+           let enc_str = map (\c -> case c of '-' -> '_'; _ -> c) . drop (length charset) $ res
+           encodingFromStringExplicit enc_str
+
 
 parse = dropTags ["script", "style"] . parseTags
 
