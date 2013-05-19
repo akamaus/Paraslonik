@@ -1,13 +1,16 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
+-- Модуль, скачивающий и кэширующий отдельные страницы
+module PageDownloader where
+
+import PageProcessor
+
 import Network.HTTP
 import Network.URI
 
 import Data.Encoding
 
-import Text.HTML.TagSoup
-
-import Data.List
+import Data.List(tails,find,isPrefixOf)
 import Data.Char(toLower)
 
 import Prelude hiding (catch)
@@ -20,8 +23,6 @@ import Data.Strings(lazyBytes)
 
 import System.Directory
 import System.FilePath
-
-import Debug.Trace
 
 type ErrorMsg = String
 
@@ -69,19 +70,3 @@ getURL url = do
                 return res
  where cache_dir = "pages-cache"
 
-parse = dropTags ["script", "style"] . parseTags
-
-getLinks = map (fromAttrib "href") . filter (~== "<a href>")
-getWords = words . innerText
-
-dropTags :: (Eq str) => [str] -> [Tag str] -> [Tag str]
-dropTags labels [] = []
-dropTags labels (tag:rest) =
-  case find (flip isTagOpenName tag) labels of
-    Nothing -> tag : dropTags labels rest
-    Just target -> skipTo target rest
-  where
-    skipTo target [] = []
-    skipTo target (tag:rest)
-      | isTagCloseName target tag = dropTags labels rest
-      | otherwise = skipTo target rest
