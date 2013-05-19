@@ -1,7 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- Модуль, скачивающий и кэширующий отдельные страницы
-module PageDownloader where
+module PageDownloader(getPage, URI) where
 
 import PageProcessor
 
@@ -44,7 +44,7 @@ downloadURL uri =
              case findHeader HdrLocation r of
                Nothing -> return $ Left (show r)
                Just str -> case parseURI str of
-                 Just uri -> getURL uri
+                 Just uri -> getPage uri
            _ -> return $ Left (show r)
  `catch` (\(exn :: IOException) -> return $ Left "connection failed")
    where determine_encoding resp = do
@@ -55,8 +55,8 @@ downloadURL uri =
            encodingFromStringExplicit enc_str
 
 -- скачивает страницу, или возвращает из кэша
-getURL :: URI -> IO (Either ErrorMsg String)
-getURL url = do
+getPage :: URI -> IO (Either ErrorMsg String)
+getPage url = do
   createDirectoryIfMissing False cache_dir
   let url_filename = show . md5 . lazyBytes . show $ url
       path = cache_dir </> url_filename
