@@ -3,7 +3,7 @@ module PageProcessor where
 
 import Network.URI
 
-import Data.List(find)
+import Data.List(find, intercalate)
 import Data.Char(isAlpha)
 import Text.HTML.TagSoup
 
@@ -17,7 +17,7 @@ getLinks :: URI -> Tags -> [URI]
 getLinks site tags = filter internal . map (canonicalize . fromAttrib "href") . filter (~== "<a href>") $ tags
   where internal u = uriAuthority u == uriAuthority site
         canonicalize u = case parseURI u of
-          Nothing -> site {uriPath = make_absolute (uriPath site) . drop_fragment $ u, uriQuery = ""} -- исходим из того, что это относительная урла. Подмена не совсем корректная, но вреда не будет
+          Nothing -> site {uriPath = dots_processor . make_absolute (uriPath site) . drop_fragment $ u, uriQuery = ""} -- исходим из того, что это относительная урла. Подмена не совсем корректная, но вреда не будет
           Just abs -> abs
         drop_fragment = fst . break (=='#')
         make_absolute old cur = case cur of
@@ -25,6 +25,19 @@ getLinks site tags = filter internal . map (canonicalize . fromAttrib "href") . 
           _ -> case take 1 (reverse old) == "/" of
             False -> old ++ "/" ++ cur -- относительный путь
             True -> old ++ cur -- относительный путь
+
+dots_processor path@('/':_) = intercalate "/" $ proc_dots [] $ split (=='/') path
+dots_processor [] = []
+dots_processor _ = error "processing dots only in absolute paths"
+
+split _ [] = []
+split test lst = let (cur, next) = break test lst
+                 in cur : split test (drop 1 next)
+
+proc_dots acc (".":xs) = proc_dots acc xs
+proc_dots acc ("..":xs) = proc_dots (drop 1 acc) xs
+proc_dots acc (x:xs) = proc_dots (x:acc) xs
+proc_dots acc [] = reverse acc
 
 -- Читаем слова из потока тегов, чистим их от мусора
 getWords = filter (not . null) . map clean_word . words . innerText
