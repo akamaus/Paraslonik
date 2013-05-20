@@ -46,7 +46,7 @@ getIndex url = do
 
 buildIndex :: URI -> IO GlobalIndex
 buildIndex url = do
-  page_indexes <- crawleSite page_processor url
+  page_indexes <- crawleSite page_processor 100 url
   page_indexes' <- filterM (\(url, res) -> case res of
                                Left err -> warn err >> return False
                                Right res -> return True) page_indexes >>= mapM (\(u,r) -> case r of Right x -> return (u,x))

@@ -16,10 +16,10 @@ import Control.Concurrent
 import Control.Exception(finally)
 import System.IO.Unsafe
 
-num_workers = 1
+num_workers = 3
 
-mkPool :: Show l => Int -> IO (l -> IO r -> IO (), IO [(l,r)])
-mkPool size = do
+mkPool :: Show l => Int -> Int -> IO (l -> IO r -> IO (), IO [(l,r)])
+mkPool size max_tasks = do
   tasks <- newChan
   results <- newChan
   numTasks <- newMVar 0
@@ -31,27 +31,28 @@ mkPool size = do
          writeChan results (label, res)
          worker
   worker_tids <- sequence . replicate size . forkIO $ worker
-  let loop = do
+  let loop remaining = do
          num_tasks <- readMVar numTasks
 --         putStrLn $ "num tasks " ++ show num_tasks
          case () of
-           _ | num_tasks == 0 -> return []  -- закончили обработку
+           _ | remaining == 0 -> warn "task quota exceeded" >> return []
+             | num_tasks == 0 -> info "grabbing done" >> return []  -- закончили обработку, закончились задания
              | otherwise -> do r <- readChan results
                                modifyMVar_ numTasks (\c -> return (c-1))
-                               rest <- loop -- unsafeInterleaveIO loop
+                               rest <- loop (remaining - 1) -- unsafeInterleaveIO loop
                                return $ r:rest
       putTask label act = do
         modifyMVar_ numTasks (\c -> return $ c+1)
         writeChan tasks (label, act)
-  return (putTask, loop `finally` mapM_ killThread worker_tids)
+  return (putTask, loop max_tasks `finally` mapM_ killThread worker_tids)
 
 type SeenStorage = MVar (S.Set URI)
 type TaskAdder a = URI -> IO a -> IO ()
 type Processor a = Fallible Tags -> Fallible a
 
-crawleSite :: Processor a -> URI -> IO [(URI, Fallible a)]
-crawleSite processor start_page = do
-  (add_task, run_pool) <- mkPool num_workers
+crawleSite :: Processor a -> Int -> URI -> IO [(URI, Fallible a)]
+crawleSite processor quota start_page = do
+  (add_task, run_pool) <- mkPool num_workers quota
   seen :: MVar (S.Set URI) <- newMVar S.empty
 
   add_task start_page (crawler seen add_task processor start_page)
