@@ -16,6 +16,7 @@ data Result = Exact URI Rating | Partial URI Word Int deriving Show
 
 -- отыскивает наиболее подходящие страницы
 findPages :: GlobalIndex -> [String] -> [Result]
+findPages index [] = []
 findPages index query = let
   relevant_pages = map (\w -> fromMaybe M.empty $ M.lookup w index) query
   top = foldl1 (M.intersectionWith (*)) relevant_pages

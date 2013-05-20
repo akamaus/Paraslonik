@@ -49,16 +49,13 @@ type SeenStorage = MVar (S.Set URI)
 type TaskAdder a = URI -> IO a -> IO ()
 type Processor a = Fallible Tags -> Fallible a
 
-crawleSite :: URI -> IO ()
-crawleSite start_page = do
+crawleSite :: Processor a -> URI -> IO [(URI, Fallible a)]
+crawleSite processor start_page = do
   (add_task, run_pool) <- mkPool num_workers
   seen :: MVar (S.Set URI) <- newMVar S.empty
 
   add_task start_page (crawler seen add_task processor start_page)
-  run_pool >>= mapM_ print
-
-processor (Left err) = Left err
-processor (Right tags) = Right $ length tags
+  run_pool
 
 crawler :: SeenStorage -> TaskAdder (Fallible a) -> Processor a -> URI -> IO (Either String a)
 crawler seen add_task processor url = do

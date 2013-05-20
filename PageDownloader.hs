@@ -19,9 +19,6 @@ import Prelude hiding (catch)
 import Control.Exception (IOException, catch)
 import Control.Monad(liftM)
 
-import Data.Digest.Pure.MD5(md5)
-import Data.Strings(lazyBytes)
-
 import System.Directory
 import System.FilePath
 
@@ -74,8 +71,7 @@ downloadURL uri =
 getPage :: URI -> IO (Fallible Document)
 getPage url = do
   createDirectoryIfMissing False cache_dir
-  let url_filename = show . md5 . lazyBytes . show $ url
-      path = cache_dir </> url_filename
+  let path = cache_dir </> urlToFile url
   cached <- doesFileExist path
   case cached of
     True -> liftM Right (readFile path)
@@ -84,5 +80,5 @@ getPage url = do
                   Left _ -> return ()
                   Right contents -> writeFile path contents
                 return res
- where cache_dir = "pages-cache"
+
 
