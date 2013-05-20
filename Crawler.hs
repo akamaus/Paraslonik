@@ -61,7 +61,6 @@ crawleSite processor quota start_page = do
 crawler :: SeenStorage -> TaskAdder (Fallible a) -> Processor a -> URI -> IO (Either String a)
 crawler seen add_task processor url = do
   res <- getPage url
-  info $ "visited " ++ show url
   case res of
     Right page -> do
       let tag_stream = parseHtml $ page

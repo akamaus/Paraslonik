@@ -23,8 +23,8 @@ import System.Directory
 import System.FilePath
 
 -- опряделяет content-type HEAD запросом, позволяет не качать впустую картинки и прочую мелочь
-getContentType :: URI -> IO (Fallible String)
-getContentType uri = do
+downloadContentType :: URI -> IO (Fallible String)
+downloadContentType uri = do
   resp <- simpleHTTP ((mkRequest HEAD uri) :: Request String)
   case resp of
     Left x -> return $ Left ("Error connecting: " ++ show x)
@@ -68,18 +68,33 @@ downloadURL uri =
            let enc_str = map (\c -> case c of '-' -> '_'; _ -> c) . drop (length charset) $ res
            encodingFromStringExplicit enc_str
 
--- скачивает страницу, или возвращает из кэша
+-- получает content-type документа или берет из кэша
+getContentType :: URI -> IO (Fallible String)
+getContentType url = do
+  createDirectoryIfMissing False cache_dir
+  let path = cache_dir </> urlToFile url <.> "head"
+  cached <- doesFileExist path
+  case cached of
+    True -> do liftM Right (readFile path)
+    False -> do res <- downloadContentType url
+                info $ "probed page: " ++ show url
+                case res of
+                  Left _ -> return ()
+                  Right contents -> writeFile path contents
+                return res
+
+-- скачивает страницу или возвращает из кэша
 getPage :: URI -> IO (Fallible Document)
 getPage url = do
   createDirectoryIfMissing False cache_dir
   let path = cache_dir </> urlToFile url
   cached <- doesFileExist path
   case cached of
-    True -> liftM Right (readFile path)
+    True -> do info $ "got page from cache: " ++ show url
+               liftM Right (readFile path)
     False -> do res <- downloadURL url
+                info $ "downloaded page: " ++ show url
                 case res of
                   Left _ -> return ()
                   Right contents -> writeFile path contents
                 return res
-
-
