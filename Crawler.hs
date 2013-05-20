@@ -74,7 +74,7 @@ crawler seen add_task processor url = do
       mapM_ (\c -> do
                 ectype <- getContentType c
                 case ectype of
-                  Left err -> putStrLn err
+                  Left err -> putStrLn $ "error probing " ++ show c ++ " : " ++ err
                   Right ctype | map toLower ctype == "text/html" -> do debug $ "putting new page in queue " ++ show c
                                                                        add_task c (crawler seen add_task processor c)
                   Right ct -> info $ "skipping " ++ show c ++ " having content type " ++ ct) new_childs
