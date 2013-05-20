@@ -7,11 +7,13 @@ import Data.List(find)
 import Data.Char(isAlpha)
 import Text.HTML.TagSoup
 
+type Tags = [Tag String]
+
 -- Разбирает Html в поток тегов
 parseHtml = dropTags ["script", "style"] . parseTags
 
 -- Читает ссылки из потока тегов, приводит их к одному виду, выбрасывает внешние
-getLinks :: URI -> [Tag String] -> [URI]
+getLinks :: URI -> Tags -> [URI]
 getLinks site tags = filter internal . map (canonicalize . fromAttrib "href") . filter (~== "<a href>") $ tags
   where internal u = uriAuthority u == uriAuthority site
         canonicalize u = case parseURI u of

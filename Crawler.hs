@@ -1,7 +1,12 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Crawler where
 
+import Common
 import PageDownloader
 import PageProcessor
+
+import qualified Data.Set as S
 
 import Control.Concurrent.MVar
 import Control.Concurrent.Chan
@@ -39,18 +44,34 @@ mkPool size = do
         writeChan tasks (label, act)
   return (putTask, loop)
 
+type SeenStorage = MVar (S.Set URI)
+type TaskAdder a = URI -> IO a -> IO ()
+type Processor a = Fallible Tags -> Fallible a
+
 crawleSite :: URI -> IO ()
 crawleSite start_page = do
   (add_task, run_pool) <- mkPool num_workers
-  let crawler p = do
-        res <- getPage p
-        case res of
-          Right page -> do
-            print $ "visited " ++ show p
-            let childs = getLinks p $ parseHtml page
-            mapM_ (\c -> add_task c (crawler c)) childs
-          Left err -> do
-            print $ "got error" ++ show err
-  add_task start_page (crawler start_page)
+  seen :: MVar (S.Set URI) <- newMVar S.empty
+
+  add_task start_page (crawler seen add_task processor start_page)
   run_pool >>= mapM_ print
-  
+
+processor (Left err) = Left err
+processor (Right tags) = Right $ length tags
+
+crawler :: SeenStorage -> TaskAdder (Fallible a) -> Processor a -> URI -> IO (Either String a)
+crawler seen add_task processor url = do
+  res <- getPage url
+  case res of
+    Right page -> do
+      print $ "visited " ++ show url
+      let tag_stream = parseHtml $ page
+      let childs = S.fromList . getLinks url $ tag_stream
+      new_childs <- modifyMVar seen $ \seen_set -> do
+        let new = S.difference seen_set childs
+        return $ (S.union seen_set new, new)
+      mapM_ (\c -> add_task c (crawler seen add_task processor c)) . S.toList $ childs
+      return . processor $ Right tag_stream
+    Left err -> do
+      print $ "got error" ++ show err
+      return . processor $ Left err

@@ -3,6 +3,7 @@
 -- Модуль, скачивающий и кэширующий отдельные страницы
 module PageDownloader(getPage, URI) where
 
+import Common
 import PageProcessor
 
 import Network.HTTP
@@ -24,10 +25,8 @@ import Data.Strings(lazyBytes)
 import System.Directory
 import System.FilePath
 
-type ErrorMsg = String
-
 -- скачивает страницу, определяет кодировку
-downloadURL :: URI -> IO (Either ErrorMsg String)
+downloadURL :: URI -> IO (Fallible Document)
 downloadURL uri =
   do resp <- simpleHTTP (mkRequest GET uri)
      case resp of
@@ -55,7 +54,7 @@ downloadURL uri =
            encodingFromStringExplicit enc_str
 
 -- скачивает страницу, или возвращает из кэша
-getPage :: URI -> IO (Either ErrorMsg String)
+getPage :: URI -> IO (Fallible Document)
 getPage url = do
   createDirectoryIfMissing False cache_dir
   let url_filename = show . md5 . lazyBytes . show $ url
