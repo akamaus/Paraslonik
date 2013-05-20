@@ -18,12 +18,12 @@ parseHtml = dropTags ["script", "style"] . parseTags
 getLinks :: URI -> Tags -> [URI]
 getLinks site tags = procLinks site $ map (fromAttrib "href") . filter (~== "<a href>") $ tags
 
-procLinks site links = filter internal . map canonicalize $ links
+procLinks site links = filter internal . map canonicalize . filter non_fragment $ links
   where internal u = uriAuthority u == uriAuthority site
         canonicalize u = case parseURI u of
-          Nothing -> site {uriPath = dots_processor . make_absolute (uriPath site) . drop_fragment $ u, uriQuery = ""} -- исходим из того, что это относительная урла. Подмена не совсем корректная, но вреда не будет
+          Nothing -> site {uriPath = dots_processor . make_absolute (uriPath site) $ u, uriQuery = ""} -- исходим из того, что это относительная урла. Подмена не совсем корректная, но вреда не будет
           Just abs -> abs
-        drop_fragment = fst . break (=='#')
+        non_fragment = not . elem '#'
 
 make_absolute old cur = case cur of
   ('/':_) -> cur -- абсолютный путь
