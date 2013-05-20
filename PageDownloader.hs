@@ -22,6 +22,7 @@ import Control.Monad(liftM)
 import System.Directory
 import System.FilePath
 
+-- опряделяет content-type HEAD запросом, позволяет не качать впустую картинки и прочую мелочь
 getContentType :: URI -> IO (Fallible String)
 getContentType uri = do
   resp <- simpleHTTP ((mkRequest HEAD uri) :: Request String)
@@ -37,7 +38,7 @@ getContentType uri = do
                Nothing -> return $ Left $ "can't find redirect location" ++ (show r)
                Just str -> case parseURI str of
                  Just uri -> getContentType uri
-      _ -> return $ Left (show r)
+      _ -> return $ Left (rspReason r)
  `catch` (\(exn :: IOException) -> return $ Left "connection failed on probing")
 -- скачивает страницу, определяет кодировку
 downloadURL :: URI -> IO (Fallible Document)
@@ -58,7 +59,7 @@ downloadURL uri =
                Nothing -> return $ Left (show r)
                Just str -> case parseURI str of
                  Just uri -> getPage uri
-           _ -> return $ Left (show r)
+           _ -> return $ Left (rspReason r)
  `catch` (\(exn :: IOException) -> return $ Left "connection failed")
    where determine_encoding resp = do
            str <- findHeader HdrContentType resp
