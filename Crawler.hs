@@ -7,6 +7,7 @@ import PageDownloader
 import PageProcessor
 
 import qualified Data.Set as S
+import Data.Char(toLower)
 
 import Control.Concurrent.MVar
 import Control.Concurrent.Chan
@@ -68,9 +69,15 @@ crawler seen add_task processor url = do
       let tag_stream = parseHtml $ page
       let childs = S.fromList . getLinks url $ tag_stream
       new_childs <- modifyMVar seen $ \seen_set -> do
-        let new = S.difference seen_set childs
-        return $ (S.union seen_set new, new)
-      mapM_ (\c -> add_task c (crawler seen add_task processor c)) . S.toList $ childs
+        let new = S.difference childs seen_set
+        return $ (S.union seen_set new, S.toList new)
+      mapM_ (\c -> do
+                ectype <- getContentType c
+                case ectype of
+                  Left err -> putStrLn err
+                  Right ctype | map toLower ctype == "text/html" -> do putStrLn $ "putting new page in queue " ++ show c
+                                                                       add_task c (crawler seen add_task processor c)
+                  Right ct -> putStrLn $ "skipping " ++ show c ++ " having content type " ++ ct) new_childs
       return . processor $ Right tag_stream
     Left err -> do
       print $ "got error" ++ show err

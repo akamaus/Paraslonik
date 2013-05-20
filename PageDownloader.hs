@@ -1,7 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- Модуль, скачивающий и кэширующий отдельные страницы
-module PageDownloader(getPage, URI) where
+module PageDownloader(getPage, getContentType, URI) where
 
 import Common
 import PageProcessor
@@ -24,6 +24,23 @@ import Data.Strings(lazyBytes)
 
 import System.Directory
 import System.FilePath
+
+getContentType :: URI -> IO (Fallible String)
+getContentType uri = do
+  resp <- simpleHTTP ((mkRequest HEAD uri) :: Request String)
+  case resp of
+    Left x -> return $ Left ("Error connecting: " ++ show x)
+    Right r -> case rspCode r of
+      (2,_,_) -> do let mstr = findHeader HdrContentType r
+                    case mstr of
+                      Nothing -> return $ Left "couldn't get content type"
+                      Just str -> return $ Right $ fst $ break (==';') str
+      (3,_,_) ->
+             case findHeader HdrLocation r of
+               Nothing -> return $ Left $ "can't find redirect location" ++ (show r)
+               Just str -> case parseURI str of
+                 Just uri -> getContentType uri
+      _ -> return $ Left (show r)
 
 -- скачивает страницу, определяет кодировку
 downloadURL :: URI -> IO (Fallible Document)
