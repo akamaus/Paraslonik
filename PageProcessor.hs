@@ -38,7 +38,9 @@ dots_processor p = error $ "processing dots only in absolute paths, but called w
 
 split _ [] = []
 split test lst = let (cur, next) = break test lst
-                 in cur : split test (drop 1 next)
+                 in case next of
+                   "/" -> cur : [""]
+                   _ -> cur : split test (drop 1 next)
 
 proc_dots acc (".":xs) = proc_dots acc xs
 proc_dots acc ("..":xs) = proc_dots (drop 1 acc) xs
