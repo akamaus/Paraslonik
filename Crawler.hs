@@ -62,9 +62,9 @@ processor (Right tags) = Right $ length tags
 crawler :: SeenStorage -> TaskAdder (Fallible a) -> Processor a -> URI -> IO (Either String a)
 crawler seen add_task processor url = do
   res <- getPage url
+  print $ "visited " ++ show url
   case res of
     Right page -> do
-      print $ "visited " ++ show url
       let tag_stream = parseHtml $ page
       let childs = S.fromList . getLinks url $ tag_stream
       new_childs <- modifyMVar seen $ \seen_set -> do

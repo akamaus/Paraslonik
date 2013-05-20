@@ -17,9 +17,14 @@ getLinks :: URI -> Tags -> [URI]
 getLinks site tags = filter internal . map (canonicalize . fromAttrib "href") . filter (~== "<a href>") $ tags
   where internal u = uriAuthority u == uriAuthority site
         canonicalize u = case parseURI u of
-          Nothing -> site {uriPath = drop_fragment u, uriQuery = ""} -- исходим из того, что это относительная урла. Подмена не совсем корректная, но вреда не будет
+          Nothing -> site {uriPath = make_absolute (uriPath site) . drop_fragment $ u, uriQuery = ""} -- исходим из того, что это относительная урла. Подмена не совсем корректная, но вреда не будет
           Just abs -> abs
         drop_fragment = fst . break (=='#')
+        make_absolute old cur = case cur of
+          ('/':_) -> cur -- абсолютный путь
+          _ -> case take 1 (reverse old) == "/" of
+            False -> old ++ "/" ++ cur -- относительный путь
+            True -> old ++ cur -- относительный путь
 
 -- Читаем слова из потока тегов, чистим их от мусора
 getWords = filter (not . null) . map clean_word . words . innerText
