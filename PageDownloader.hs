@@ -41,7 +41,7 @@ getContentType uri = do
                Just str -> case parseURI str of
                  Just uri -> getContentType uri
       _ -> return $ Left (show r)
-
+ `catch` (\(exn :: IOException) -> return $ Left "connection failed on probing")
 -- скачивает страницу, определяет кодировку
 downloadURL :: URI -> IO (Fallible Document)
 downloadURL uri =

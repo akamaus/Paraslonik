@@ -13,6 +13,7 @@ import Control.Concurrent.MVar
 import Control.Concurrent.Chan
 
 import Control.Concurrent
+import Control.Exception(finally)
 import System.IO.Unsafe
 
 num_workers = 1
@@ -34,8 +35,7 @@ mkPool size = do
          num_tasks <- readMVar numTasks
 --         putStrLn $ "num tasks " ++ show num_tasks
          case () of
-           _ | num_tasks == 0 -> do mapM_ killThread worker_tids -- закончили обработку
-                                    return []
+           _ | num_tasks == 0 -> return []  -- закончили обработку
              | otherwise -> do r <- readChan results
                                modifyMVar_ numTasks (\c -> return (c-1))
                                rest <- loop -- unsafeInterleaveIO loop
@@ -43,7 +43,7 @@ mkPool size = do
       putTask label act = do
         modifyMVar_ numTasks (\c -> return $ c+1)
         writeChan tasks (label, act)
-  return (putTask, loop)
+  return (putTask, loop `finally` mapM_ killThread worker_tids)
 
 type SeenStorage = MVar (S.Set URI)
 type TaskAdder a = URI -> IO a -> IO ()
