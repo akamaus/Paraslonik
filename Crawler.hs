@@ -63,7 +63,7 @@ processor (Right tags) = Right $ length tags
 crawler :: SeenStorage -> TaskAdder (Fallible a) -> Processor a -> URI -> IO (Either String a)
 crawler seen add_task processor url = do
   res <- getPage url
-  print $ "visited " ++ show url
+  info $ "visited " ++ show url
   case res of
     Right page -> do
       let tag_stream = parseHtml $ page
@@ -75,10 +75,10 @@ crawler seen add_task processor url = do
                 ectype <- getContentType c
                 case ectype of
                   Left err -> putStrLn err
-                  Right ctype | map toLower ctype == "text/html" -> do putStrLn $ "putting new page in queue " ++ show c
+                  Right ctype | map toLower ctype == "text/html" -> do debug $ "putting new page in queue " ++ show c
                                                                        add_task c (crawler seen add_task processor c)
-                  Right ct -> putStrLn $ "skipping " ++ show c ++ " having content type " ++ ct) new_childs
+                  Right ct -> info $ "skipping " ++ show c ++ " having content type " ++ ct) new_childs
       return . processor $ Right tag_stream
     Left err -> do
-      print $ "got error" ++ show err
+      warn $ "got error" ++ show err
       return . processor $ Left err
