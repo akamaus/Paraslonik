@@ -3,6 +3,8 @@ module PageProcessor where
 
 import Network.URI
 
+import Common
+
 import Data.List(find, intercalate)
 import Data.Char(isAlpha)
 import Text.HTML.TagSoup
@@ -44,6 +46,7 @@ proc_dots acc (x:xs) = proc_dots (x:acc) xs
 proc_dots acc [] = reverse acc
 
 -- Читаем слова из потока тегов, чистим их от мусора
+getWords :: Tags -> [Word]
 getWords = filter (not . null) . map clean_word . words . innerText
   where clean_word = reverse . dropWhile (not . isAlpha) . reverse . dropWhile (not . isAlpha)
 
