@@ -36,7 +36,7 @@ main = do
           "search" -> do
             index <- getIndex url True
             putStrLn "Search results:"
-            mapM_ print $ findPages index query
+            mapM_ print $ findPages index (map cleanWord query)
           "show" -> do
             index <- getIndex url True
             printGlobalIndex index

@@ -50,8 +50,9 @@ proc_dots acc [] = reverse acc
 
 -- Читаем слова из потока тегов, чистим их от мусора
 getWords :: Tags -> [Word]
-getWords = filter (not . null) . map clean_word . words . innerText
-  where clean_word = reverse . dropWhile (not . isAlpha) . reverse . dropWhile (not . isAlpha)
+getWords = map cleanWord . words . innerText
+
+cleanWord = reverse . dropWhile (not . isAlpha) . reverse . dropWhile (not . isAlpha)
 
 -- Вырезаем содежимое заданных тегов из документа
 dropTags :: (Eq str) => [str] -> [Tag str] -> [Tag str]
