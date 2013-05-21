@@ -13,8 +13,11 @@ type Fallible = Either ErrorMsg
 type Document = String
 type Word = String
 
-cache_dir = "pages-cache"
-index_dir = "index-cache"
+numPages = 100 :: Int
+numWorkers = 10 :: Int
+
+cacheDir = "pages-cache"
+indexDir = "index-cache"
 
 warn = hPutStrLn stderr
 info = warn
@@ -24,3 +27,4 @@ debug = const $ return () --info
 
 urlToFile :: URI -> FilePath
 urlToFile = show . md5 . lazyBytes . show
+

@@ -16,8 +16,6 @@ import Control.Concurrent
 import Control.Exception(finally)
 import System.IO.Unsafe
 
-num_workers = 3
-
 mkPool :: Show l => Int -> Int -> IO (l -> IO r -> IO (), IO [(l,r)])
 mkPool size max_tasks = do
   tasks <- newChan
@@ -52,7 +50,7 @@ type Processor a = Fallible Tags -> Fallible a
 
 crawleSite :: Processor a -> Int -> URI -> IO [(URI, Fallible a)]
 crawleSite processor quota start_page = do
-  (add_task, run_pool) <- mkPool num_workers quota
+  (add_task, run_pool) <- mkPool numWorkers quota
   seen :: MVar (S.Set URI) <- newMVar S.empty
 
   add_task start_page (crawler seen add_task processor start_page)

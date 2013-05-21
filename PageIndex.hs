@@ -13,9 +13,12 @@ type PageIndex = M.Map Word Int
 type WordStats = M.Map URI Int
 type GlobalIndex = M.Map Word WordStats
 
+-- индексируем содержимое одной страницы
 indexContent :: [Word] -> PageIndex
-indexContent = foldl' (\dic w -> M.insertWith (+) w 1 dic) M.empty
+indexContent content = let m = foldl' (\dic w -> M.insertWith (+) w 1 dic) M.empty content
+                       in M.foldl' (+) 0 m `seq` m
 
+-- строим глобальный индекс по индексу страниц
 indexPages :: [(URI, PageIndex)] -> GlobalIndex
 indexPages page_indexes = M.unionsWith combine_word_stats $ map page_to_global page_indexes
   where page_to_global (url,page_index) = M.map (\i -> M.singleton url i) page_index

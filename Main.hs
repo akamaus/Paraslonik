@@ -33,10 +33,11 @@ main = do
           mapM_ print $ findPages index query
     _ -> warn usage
 
+-- получаем главный индекс (либо читаем с диска, либо строим)
 getIndex :: URI -> IO GlobalIndex
 getIndex url = do
-  createDirectoryIfMissing False index_dir
-  let path = index_dir </> urlToFile url
+  createDirectoryIfMissing False indexDir
+  let path = indexDir </> urlToFile url
   cached <- doesFileExist path
   case cached of
     True -> do decodeFile path
@@ -44,15 +45,17 @@ getIndex url = do
                 encodeFile path index
                 return index
 
+-- строим индекс
 buildIndex :: URI -> IO GlobalIndex
 buildIndex url = do
-  page_indexes <- crawleSite page_processor 100 url
+  page_indexes <- crawleSite page_processor numPages url
   page_indexes' <- filterM (\(url, res) -> case res of
                                Left err -> warn err >> return False
                                Right res -> return True) page_indexes >>= mapM (\(u,r) -> case r of Right x -> return (u,x))
   let index = indexPages page_indexes'
   return index
 
+-- обработчик отдельных страниц
 page_processor :: Processor PageIndex
 page_processor (Left err) = (Left err)
 page_processor (Right tags) = Right (indexContent . getWords $ tags)

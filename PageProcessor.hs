@@ -8,6 +8,7 @@ import Common
 import Data.List(find, intercalate)
 import Data.Char(isAlpha)
 import Text.HTML.TagSoup
+import Data.Maybe(fromMaybe)
 
 type Tags = [Tag String]
 
@@ -18,12 +19,12 @@ parseHtml = dropTags ["script", "style"] . parseTags
 getLinks :: URI -> Tags -> [URI]
 getLinks site tags = procLinks site $ map (fromAttrib "href") . filter (~== "<a href>") $ tags
 
-procLinks site links = filter internal . map canonicalize . filter non_fragment $ links
+procLinks site links = filter internal . map canonicalize . filter (\l -> non_fragment l && non_query l) $ links
   where internal u = uriAuthority u == uriAuthority site
-        canonicalize u = case parseURI u of
-          Nothing -> site {uriPath = dots_processor . make_absolute (uriPath site) $ u, uriQuery = ""} -- исходим из того, что это относительная урла. Подмена не совсем корректная, но вреда не будет
-          Just abs -> abs
-        non_fragment = not . elem '#'
+        canonicalize u = fromMaybe (site {uriPath = dots_processor . make_absolute (uriPath site) $ u, uriQuery = ""}) -- исходим из того, что это относительная урла. Подмена не совсем корректная, но вреда не будет
+                                   (parseURI u)
+        non_fragment = notElem '#'
+        non_query = notElem '?'
 
 make_absolute old cur = case cur of
   ('/':_) -> cur -- абсолютный путь
