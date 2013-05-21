@@ -19,14 +19,14 @@ import System.IO.Unsafe
 mkPool :: Int -> Int -> IO (l -> IO (Fallible r) -> IO (), IO [(l,Fallible r)])
 mkPool size max_tasks = do
   tasks <- newChan
-  results <- newChan
+  result <- newEmptyMVar
   numTasks <- newMVar 0
   let worker = do
 --         putStrLn "waiting for task"
          (label, act) <- readChan tasks
 --         putStrLn $ "took " ++ show label
          res <- act
-         writeChan results (label, res)
+         putMVar result (label, res)
          worker
   worker_tids <- sequence . replicate size . forkIO $ worker
   let loop remaining = do
@@ -34,7 +34,7 @@ mkPool size max_tasks = do
          case () of
            _ | remaining == 0 -> warn "task quota exceeded" >> return []
              | num_tasks == 0 -> info "grabbing done" >> return []  -- закончили обработку, закончились задания
-             | otherwise -> do r <- readChan results
+             | otherwise -> do r <- takeMVar result
                                let remaining' = case r of -- в ограничении глубины учитываем только разобранные страницы
                                      (_, Left _) -> remaining
                                      (_, Right _) -> remaining - 1

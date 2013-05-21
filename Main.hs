@@ -19,6 +19,8 @@ import System.FilePath
 import Data.Binary
 import Data.DeriveTH
 
+import Debug.Trace
+
 $(derives [makeBinary] [''URIAuth, ''URI])
 
 main = do
@@ -53,7 +55,7 @@ buildIndex url = do
                        Left err -> warn err >> return False
                        Right res -> return True) results
   let pages = map (\(u,r) -> case r of Right x -> (u,x)) epages
-      page_stats = map (\(u,t) -> (u, pageProcessor t)) pages
+      page_stats = map (\(u,t) -> trace ("processing " ++ show u) $ (u, pageProcessor t)) pages
       index = indexPages page_stats
   return index
 
