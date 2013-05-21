@@ -22,48 +22,40 @@ import Control.Monad(liftM)
 import System.Directory
 import System.FilePath
 
--- опряделяет content-type HEAD запросом, позволяет не качать впустую картинки и прочую мелочь
-downloadContentType :: URI -> IO (Fallible String)
-downloadContentType uri = do
-  resp <- simpleHTTP ((mkRequest HEAD uri) :: Request String)
+-- Выполняет заданный http запрос, выполняет одно из двух действий в зависимости от кода успеха
+httpRequest :: RequestMethod -> URI -> (URI -> IO (Fallible a)) -> (Response String -> Fallible a) -> IO (Fallible a)
+httpRequest method url onRedirect onSuccess = do
+  resp <- simpleHTTP ((mkRequest method url) :: Request String)
   case resp of
     Left x -> return $ Left ("Error connecting: " ++ show x)
     Right r -> case rspCode r of
-      (2,_,_) -> do let mstr = findHeader HdrContentType r
-                    case mstr of
-                      Nothing -> return $ Left "couldn't get content type"
-                      Just str -> return $ Right $ fst $ break (==';') str
+      (2,_,_) -> return $ onSuccess r
       (3,_,_) ->
              case findHeader HdrLocation r of
                Nothing -> return $ Left $ "can't find redirect location" ++ (show r)
                Just str -> case parseURI str of
-                 Just uri -> getContentType uri
+                 Just uri -> onRedirect uri
                  Nothing -> return $ Left "can't parse redirection url"
       _ -> return $ Left (rspReason r)
  `catch` (\(exn :: IOException) -> return $ Left "connection failed on probing")
+
+-- опряделяет content-type HEAD запросом, позволяет не качать впустую картинки и прочую мелочь
+downloadContentType :: URI -> IO (Fallible String)
+downloadContentType url = httpRequest HEAD url getContentType extract
+ where extract r = case findHeader HdrContentType r of
+                     Nothing ->  Left "couldn't get content type"
+                     Just str -> Right $ fst $ break (==';') str
+
 -- скачивает страницу, определяет кодировку
 downloadURL :: URI -> IO (Fallible Document)
-downloadURL uri =
-  do resp <- simpleHTTP (mkRequest GET uri)
-     case resp of
-       Left x -> return $ Left ("Error connecting: " ++ show x)
-       Right r ->
-         case rspCode r of
-           (2,_,_) -> case determine_encoding r of
-             Just enc -> case decodeStringExplicit enc (rspBody r) of
-               Left err -> return $ Left $ "couldn't decode page:" ++ show err
-               Right x -> return $ Right x
-             Nothing -> return $ Left "couldn't determine encoding"
-           (3,_,_) ->
-             -- HTTP Redirect
-             case findHeader HdrLocation r of
-               Nothing -> return $ Left (show r)
-               Just str -> case parseURI str of
-                 Just uri -> getPage uri
-                 Nothing -> return $ Left "can't parse redirection url"
-           _ -> return $ Left (rspReason r)
- `catch` (\(exn :: IOException) -> return $ Left "connection failed")
-   where determine_encoding resp = do
+downloadURL url = httpRequest GET url getPage extractContents
+ where extractContents r =
+         case determine_encoding r of
+           Just enc -> case decodeStringExplicit enc (rspBody r) of
+             Left err -> Left $ "couldn't decode page:" ++ show err
+             Right x ->  Right x
+           Nothing -> Left "couldn't determine encoding"
+       determine_encoding resp = do
            str <- findHeader HdrContentType resp
            let charset = "charset="
            res <- find (charset `isPrefixOf`) . tails . map toLower $ str
