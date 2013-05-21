@@ -11,8 +11,8 @@ import Data.Function
 import qualified Data.Map as M
 import Data.List(sortBy, maximumBy)
 
-type Rating = Int
-data Result = Exact URI Rating | Partial URI Word Int deriving Show
+type Rating = Float
+data Result = Exact URI Rating | Partial URI Word Float deriving Show
 
 -- отыскивает наиболее подходящие страницы
 findPages :: GlobalIndex -> [String] -> [Result]

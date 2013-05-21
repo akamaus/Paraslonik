@@ -9,8 +9,8 @@ import Network.URI
 import qualified Data.Map as M
 import Data.List(foldl')
 
-type PageIndex = M.Map Word Int
-type WordStats = M.Map URI Int
+type PageIndex = M.Map Word Float
+type WordStats = M.Map URI Float
 type GlobalIndex = M.Map Word WordStats
 
 -- вспомогательная функция, для внесения строгости
@@ -18,7 +18,9 @@ traverse m = M.foldl' (+) 0 m
 
 -- индексируем содержимое одной страницы
 indexContent :: [Word] -> PageIndex
-indexContent content = let m = foldl' (\dic w -> M.insertWith (+) w 1 dic) M.empty content
+indexContent content = let m = foldl' (\dic word -> M.insertWith (+) word weight dic) M.empty content
+                           num_words = length content
+                           weight = 1 / fromIntegral num_words
                        in traverse m `seq` m
 
 -- пустой индекс
