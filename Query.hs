@@ -13,8 +13,12 @@ import Data.List(sortBy, maximumBy)
 import Text.Printf
 
 type Rating = Float
-data Result = Exact URI Rating | Partial URI Word Float
 
+-- результат
+data Result = Exact URI Rating -- полное совпадение, по всем словам
+            | Partial URI Word Float -- частичное, по одному слову
+
+-- инстанс, для более аккуратного вывода
 instance Show Result where
   show (Exact u r) = printf "%-50s %f" (show u) r
   show (Partial u w r) = printf "%-50s %-10s   %f" (show u) w r
@@ -23,12 +27,12 @@ instance Show Result where
 findPages :: GlobalIndex -> [String] -> [Result]
 findPages index [] = []
 findPages index query = let
-  relevant_pages = map (\w -> fromMaybe M.empty $ M.lookup w index) query
-  top = foldl1 (M.intersectionWith (*)) relevant_pages
+  relevant_pages = map (\w -> fromMaybe M.empty $ M.lookup w index) query -- все страницы, где есть слова запроса
+  top = foldl1 (M.intersectionWith (*)) relevant_pages -- пересекаем множества страниц, получаем полные совпадения
   in case () of
     _ | M.size top > 0 -> let top_urls = sortBy (compare `on` (negate . snd)) $ M.toList top -- точное совпадение по всем словам запроса
-                          in map (uncurry Exact) top_urls
-      | otherwise -> let word_data = filter ((> 0) . M.size . snd) $ zip query relevant_pages
+                          in map (\(u,r) -> Exact u r) top_urls
+      | otherwise -> let word_data = filter ((> 0) . M.size . snd) $ zip query relevant_pages -- нет точных совпадений, ищем частичные
                      in map (\(word, word_stats) -> let (url, stats) = maximumBy (compare `on` snd) $ M.toList $ word_stats
                                                     in Partial url word stats
                             ) word_data

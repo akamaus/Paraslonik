@@ -30,14 +30,14 @@ main = do
       case parseURI site of
         Nothing -> warn "can't parse site url" >> warn usage
         Just url -> case command of
-          "reindex" -> do
+          "reindex" -> do -- повторная индексация
             getIndex url False
             return ()
-          "search" -> do
+          "search" -> do -- поиск слов
             index <- getIndex url True
             putStrLn "Search results:"
             mapM_ print $ findPages index (map cleanWord query)
-          "show" -> do
+          "show" -> do -- вывод базы
             index <- getIndex url True
             printGlobalIndex index
     _ -> warn usage

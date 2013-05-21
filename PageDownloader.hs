@@ -29,12 +29,12 @@ httpRequest method url onRedirect onSuccess = do
   case resp of
     Left x -> return $ Left ("Error connecting: " ++ show x)
     Right r -> case rspCode r of
-      (2,_,_) -> return $ onSuccess r
+      (2,_,_) -> return $ onSuccess r -- успех, вызываем переданную функцию обработки
       (3,_,_) ->
              case findHeader HdrLocation r of
                Nothing -> return $ Left $ "can't find redirect location" ++ (show r)
                Just str -> case parseURI str of
-                 Just uri -> onRedirect uri
+                 Just uri -> onRedirect uri -- редирект, переходим к новой урле
                  Nothing -> return $ Left "can't parse redirection url"
       _ -> return $ Left (rspReason r)
  `catch` (\(exn :: IOException) -> return $ Left "connection failed on probing")
@@ -42,7 +42,7 @@ httpRequest method url onRedirect onSuccess = do
 -- опряделяет content-type HEAD запросом, позволяет не качать впустую картинки и прочую мелочь
 downloadContentType :: URI -> IO (Fallible String)
 downloadContentType url = httpRequest HEAD url getContentType extract
- where extract r = case findHeader HdrContentType r of
+ where extract r = case findHeader HdrContentType r of -- извлекаем заголовок
                      Nothing ->  Left "couldn't get content type"
                      Just str -> Right $ fst $ break (==';') str
 
@@ -55,12 +55,12 @@ downloadURL url = httpRequest GET url getPage extractContents
              Left err -> Left $ "couldn't decode page:" ++ show err
              Right x ->  Right x
            Nothing -> Left "couldn't determine encoding"
-       determine_encoding resp = do
+       determine_encoding resp = do -- определяем кодировку по заголовку Content-type, там бывает поле charset
            str <- findHeader HdrContentType resp
            let charset = "charset="
            res <- find (charset `isPrefixOf`) . tails . map toLower $ str
-           let enc_str = map (\c -> case c of '-' -> '_'; _ -> c) . drop (length charset) $ res
-           encodingFromStringExplicit enc_str
+           let enc_str = map (\c -> case c of '-' -> '_'; _ -> c) . drop (length charset) $ res -- ищем charset в строке
+           encodingFromStringExplicit enc_str 
 
 -- получает content-type документа или берет из кэша
 getContentType :: URI -> IO (Fallible String)

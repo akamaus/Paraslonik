@@ -22,7 +22,7 @@ cacheDir = "pages-cache"
 indexDir = "index-cache"
 
 {-# NOINLINE consoleMutex #-}
-consoleMutex = unsafePerformIO $ newMVar ()
+consoleMutex = unsafePerformIO $ newMVar () -- мьютекс, дабы не замешивался отладочный вывод
 
 sync :: IO a -> IO a
 sync act = withMVar consoleMutex (\_ -> act)
@@ -33,6 +33,7 @@ info = sync . putStrLn
 debug :: String -> IO ()
 debug = const $ return () --info
 
+-- преобразование урла в имя файла, для целей кэширования
 urlToFile :: URI -> FilePath
 urlToFile = show . md5 . lazyBytes . show
 

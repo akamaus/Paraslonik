@@ -33,7 +33,7 @@ addPageToIndex global_index (url, page_index) = M.unionWith combine_word_stats g
         combine_word_stats :: WordStats -> WordStats -> WordStats
         combine_word_stats = M.unionWith (+)
 
--- строим глобальный индекс по индексу страниц
+-- строим глобальный индекс по индексу страниц (сейчас не используется, он строится постранично)
 indexPages :: [(URI, PageIndex)] -> GlobalIndex
 indexPages page_indexes = M.unionsWith combine_word_stats $ map page_to_global page_indexes
   where page_to_global (url,page_index) = M.map (\i -> M.singleton url i) page_index
