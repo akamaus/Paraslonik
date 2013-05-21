@@ -31,7 +31,6 @@ mkPool size max_tasks = do
   worker_tids <- sequence . replicate size . forkIO $ worker
   let loop remaining = do
          num_tasks <- readMVar numTasks
---         putStrLn $ "num tasks " ++ show num_tasks
          case () of
            _ | remaining == 0 -> warn "task quota exceeded" >> return []
              | num_tasks == 0 -> info "grabbing done" >> return []  -- закончили обработку, закончились задания
@@ -46,18 +45,19 @@ mkPool size max_tasks = do
 
 type SeenStorage = MVar (S.Set URI)
 type TaskAdder a = URI -> IO a -> IO ()
-type Processor a = Fallible Tags -> Fallible a
 
-crawleSite :: Processor a -> Int -> URI -> IO [(URI, Fallible a)]
-crawleSite processor quota start_page = do
+-- Обёртка над пулом потоков, организующая обход сайта, ведущая учёт посещённых страниц
+crawleSite :: Int -> URI -> IO [(URI, Fallible Tags)]
+crawleSite quota start_page = do
   (add_task, run_pool) <- mkPool numWorkers quota
   seen :: MVar (S.Set URI) <- newMVar S.empty
 
-  add_task start_page (crawler seen add_task processor start_page)
+  add_task start_page (crawler seen add_task start_page)
   run_pool
 
-crawler :: SeenStorage -> TaskAdder (Fallible a) -> Processor a -> URI -> IO (Either String a)
-crawler seen add_task processor url = do
+-- Функция, анализирующая конкретный URL, выставляющая задачи на анализ обнаруженных ссылок
+crawler :: SeenStorage -> TaskAdder (Fallible Tags) -> URI -> IO (Either String Tags)
+crawler seen add_task url = do
   res <- getPage url
   case res of
     Right page -> do
@@ -71,9 +71,9 @@ crawler seen add_task processor url = do
                 case ectype of
                   Left err -> putStrLn $ "error probing " ++ show c ++ " : " ++ err
                   Right ctype | map toLower ctype == "text/html" -> do debug $ "putting new page in queue " ++ show c
-                                                                       add_task c (crawler seen add_task processor c)
+                                                                       add_task c (crawler seen add_task c)
                   Right ct -> info $ "skipping " ++ show c ++ " having content type " ++ ct) new_childs
-      return . processor $ Right tag_stream
+      return $ Right tag_stream
     Left err -> do
       warn $ "got error" ++ show err
-      return . processor $ Left err
+      return $ Left err

@@ -48,17 +48,18 @@ getIndex url = do
 -- строим индекс
 buildIndex :: URI -> IO GlobalIndex
 buildIndex url = do
-  page_indexes <- crawleSite page_processor numPages url
-  page_indexes' <- filterM (\(url, res) -> case res of
-                               Left err -> warn err >> return False
-                               Right res -> return True) page_indexes >>= mapM (\(u,r) -> case r of Right x -> return (u,x))
-  let index = indexPages page_indexes'
+  results <- crawleSite numPages url
+  epages <- filterM (\(url, res) -> case res of
+                       Left err -> warn err >> return False
+                       Right res -> return True) results
+  let pages = map (\(u,r) -> case r of Right x -> (u,x)) epages
+      page_stats = map (\(u,t) -> (u, pageProcessor t)) pages
+      index = indexPages page_stats
   return index
 
 -- обработчик отдельных страниц
-page_processor :: Processor PageIndex
-page_processor (Left err) = (Left err)
-page_processor (Right tags) = Right (indexContent . getWords $ tags)
+pageProcessor :: Tags -> PageIndex
+pageProcessor = indexContent . getWords
 
 usage = unlines [ "Usage:",
                   "crawler.exe <site url> [<query words>]"
