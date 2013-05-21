@@ -10,9 +10,14 @@ import Data.Function
 
 import qualified Data.Map as M
 import Data.List(sortBy, maximumBy)
+import Text.Printf
 
 type Rating = Float
-data Result = Exact URI Rating | Partial URI Word Float deriving Show
+data Result = Exact URI Rating | Partial URI Word Float
+
+instance Show Result where
+  show (Exact u r) = printf "%-50s %f" (show u) r
+  show (Partial u w r) = printf "%-50s %-10s   %f" (show u) w r
 
 -- отыскивает наиболее подходящие страницы
 findPages :: GlobalIndex -> [String] -> [Result]
