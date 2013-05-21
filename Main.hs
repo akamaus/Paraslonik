@@ -26,22 +26,29 @@ $(derives [makeBinary] [''URIAuth, ''URI])
 main = do
   args <- getArgs
   case args of
-    (site:query) -> do
+    (site:command:query) -> do
       case parseURI site of
         Nothing -> warn "can't parse site url" >> warn usage
-        Just url -> do
-          index <- getIndex url
-          putStrLn "Search results:"
-          mapM_ print $ findPages index query
+        Just url -> case command of
+          "reindex" -> do
+            getIndex url False
+            return ()
+          "search" -> do
+            index <- getIndex url True
+            putStrLn "Search results:"
+            mapM_ print $ findPages index query
+          "show" -> do
+            index <- getIndex url True
+            printGlobalIndex index
     _ -> warn usage
 
 -- получаем главный индекс (либо читаем с диска, либо строим)
-getIndex :: URI -> IO GlobalIndex
-getIndex url = do
+getIndex :: URI -> Bool ->  IO GlobalIndex
+getIndex url use_cache = do
   createDirectoryIfMissing False indexDir
   let path = indexDir </> urlToFile url
   cached <- doesFileExist path
-  case cached of
+  case use_cache && cached of
     True -> do decodeFile path
     False -> do index <- buildIndex url
                 encodeFile path index

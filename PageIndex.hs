@@ -24,3 +24,10 @@ indexPages page_indexes = M.unionsWith combine_word_stats $ map page_to_global p
   where page_to_global (url,page_index) = M.map (\i -> M.singleton url i) page_index
         combine_word_stats :: WordStats -> WordStats -> WordStats
         combine_word_stats = M.unionWith (+)
+
+printGlobalIndex :: GlobalIndex -> IO ()
+printGlobalIndex gi = mapM_ (\(word, page_index) -> putStrLn word >> printPageIndex page_index) $ M.toList gi
+
+printPageIndex :: WordStats -> IO ()
+printPageIndex pi = mapM_ (\(uri, num) -> putStrLn $ "   " ++ show uri ++ show num) $ M.toList pi
+
