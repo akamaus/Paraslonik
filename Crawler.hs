@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables, BangPatterns #-}
 
-module Crawler where
+module Crawler(mkSiteCrawler) where
 
 import Common
 import PageDownloader
@@ -14,7 +14,6 @@ import Control.Concurrent.Chan
 
 import Control.Concurrent
 import Control.Exception(finally)
-import System.IO.Unsafe
 
 -- создаёт thread pool
 -- аргументы: размер, максимальное количество заданий (предел по глубине)
@@ -41,27 +40,18 @@ mkPool size max_tasks = do
            _ | remaining == 0 -> warn "task quota exceeded" >> return total -- прерываем обработку, превышено количество заданий
              | num_tasks == 0 -> info "grabbing done" >> return total  -- закончили обработку, закончились задания
              | otherwise -> do r <- takeMVar result
+                               modifyMVar_ numTasks (\c -> return (c-1))
                                (remaining', total') <- case r of -- в ограничении глубины учитываем только разобранные страницы
                                      (_, Left err) -> warn err >> return (remaining, total)
-                                     (u, Right res) -> return (remaining - 1, summer total (processor (u,res)))
-                               modifyMVar_ numTasks (\c -> return (c-1))
+                                     (u, Right res) -> return (remaining - 1, total `summer` processor (u,res))
                                loop remaining' total' processor summer
       putTask label act = do -- функция, добавляющая новое задание
         modifyMVar_ numTasks (\c -> return $ c+1)
         writeChan tasks (label, act)
   return (putTask, \total0 processor summer -> loop max_tasks total0 processor summer `finally` mapM_ killThread worker_tids)
 
-type SeenStorage = MVar (S.Set URI)
+type SeenStorage = MVar (S.Set URI) -- тип, хранилище посещенных ссылок
 type TaskAdder a = URI -> IO a -> IO ()
-
--- Обёртка над пулом потоков, организующая обход сайта, ведущая учёт посещённых страниц
-mkSiteCrawler :: Int -> URI -> IO (t -> ((URI, Tags) -> p) -> (t -> p -> t) -> IO t)
-mkSiteCrawler quota start_page = do
-  (add_task, run_pool) <- mkPool numWorkers quota -- создали пул
-  seen :: MVar (S.Set URI) <- newMVar S.empty -- множество посещенных страниц, чтоб избежать петлей ссылок
-
-  add_task start_page (crawler seen add_task start_page) -- добавили первую страницу
-  return $ run_pool -- вернули обработчик, его запустят выше
 
 -- Функция, анализирующая конкретный URL, выставляющая задачи на анализ обнаруженных ссылок
 crawler :: SeenStorage -> TaskAdder (Fallible Tags) -> URI -> IO (Fallible Tags)
@@ -84,3 +74,12 @@ crawler seen add_task url = do
          mapM_ (\link -> add_task link (crawler seen add_task link)) new_childs -- все ссылки помещаем в очередь на анализ
          return $ Right tag_stream -- возвращаем поток тегов для дальнейшей обработки
        Left err -> return $ Left err
+
+-- Обёртка над пулом потоков, организующая обход сайта, ведущая учёт посещённых страниц
+mkSiteCrawler :: Int -> URI -> IO (t -> ((URI, Tags) -> p) -> (t -> p -> t) -> IO t)
+mkSiteCrawler quota start_page = do
+  (add_task, run_pool) <- mkPool numWorkers quota -- создали пул
+  seen :: SeenStorage <- newMVar S.empty -- множество посещенных страниц, чтоб избежать петлей ссылок
+
+  add_task start_page (crawler seen add_task start_page) -- добавили первую страницу
+  return $ run_pool -- вернули обработчик, его запустят выше

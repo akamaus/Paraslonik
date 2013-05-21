@@ -1,9 +1,9 @@
 -- Модуль, обрабатывающий Html страницу
 module PageProcessor where
 
-import Network.URI
-
 import Common
+
+import Network.URI
 
 import Data.List(find, intercalate)
 import Data.Char(isAlpha)

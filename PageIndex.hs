@@ -1,4 +1,4 @@
--- Модуль индексации страницы
+-- Модуль индексации страницы и построения глобального индекса
 module PageIndex where
 
 import Common
@@ -8,6 +8,7 @@ import Network.URI
 
 import qualified Data.Map as M
 import Data.List(foldl')
+import Text.Printf
 
 type PageIndex = M.Map Word Float
 type WordStats = M.Map URI Float
@@ -33,18 +34,10 @@ addPageToIndex global_index (url, page_index) = M.unionWith combine_word_stats g
         combine_word_stats :: WordStats -> WordStats -> WordStats
         combine_word_stats = M.unionWith (+)
 
--- строим глобальный индекс по индексу страниц (сейчас не используется, он строится постранично)
-indexPages :: [(URI, PageIndex)] -> GlobalIndex
-indexPages page_indexes = M.unionsWith combine_word_stats $ map page_to_global page_indexes
-  where page_to_global (url,page_index) = M.map (\i -> M.singleton url i) page_index
-        combine_word_stats :: WordStats -> WordStats -> WordStats
-        combine_word_stats = M.unionWith (+)
-
 -- печатаем глобальный индекс
 printGlobalIndex :: GlobalIndex -> IO ()
 printGlobalIndex gi = mapM_ (\(word, page_index) -> putStrLn word >> printPageIndex page_index) $ M.toList gi
 
 -- печатаем информацию по слову (часть индекса)
 printPageIndex :: WordStats -> IO ()
-printPageIndex pi = mapM_ (\(uri, num) -> putStrLn $ "   " ++ show uri ++ show num) $ M.toList pi
-
+printPageIndex pi = mapM_ (\(uri, freq) -> putStrLn $ printf "   %50s %10f" (show uri) freq) $ M.toList pi

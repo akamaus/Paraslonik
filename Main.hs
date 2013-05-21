@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
-
+-- интерфейс программы
 module Main where
 
 import Common
@@ -11,15 +11,12 @@ import PageProcessor
 import Network.URI
 
 import System.Environment(getArgs)
-import Control.Monad(filterM)
 
 import System.Directory
 import System.FilePath
 
 import Data.Binary
 import Data.DeriveTH
-
-import Debug.Trace
 
 $(derives [makeBinary] [''URIAuth, ''URI])
 
@@ -64,6 +61,8 @@ buildIndex url = do
 pageProcessor :: Tags -> PageIndex
 pageProcessor = indexContent . getWords
 
-usage = unlines [ "Usage:",
-                  "crawler.exe <site url> [<query words>]"
+usage = unlines [ "Usage:"
+                , "crawler.exe <site url> reindex"
+                , "crawler.exe <site url> search <query words>"
+                , "crawler.exe <site url> show"
                 ]

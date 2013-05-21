@@ -1,3 +1,4 @@
+-- выполнение поисковых запросов по базе
 module Query where
 
 import Common
@@ -24,7 +25,7 @@ instance Show Result where
   show (Partial u w r) = printf "%-50s %-10s   %f" (show u) w r
 
 -- отыскивает наиболее подходящие страницы
-findPages :: GlobalIndex -> [String] -> [Result]
+findPages :: GlobalIndex -> [Word] -> [Result]
 findPages index [] = []
 findPages index query = let
   relevant_pages = map (\w -> fromMaybe M.empty $ M.lookup w index) query -- все страницы, где есть слова запроса

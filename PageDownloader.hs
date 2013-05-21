@@ -60,7 +60,7 @@ downloadURL url = httpRequest GET url getPage extractContents
            let charset = "charset="
            res <- find (charset `isPrefixOf`) . tails . map toLower $ str
            let enc_str = map (\c -> case c of '-' -> '_'; _ -> c) . drop (length charset) $ res -- ищем charset в строке
-           encodingFromStringExplicit enc_str 
+           encodingFromStringExplicit enc_str
 
 -- получает content-type документа или берет из кэша
 getContentType :: URI -> IO (Fallible String)

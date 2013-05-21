@@ -15,11 +15,11 @@ type Fallible = Either ErrorMsg
 type Document = String
 type Word = String
 
-numPages = 1000 :: Int
-numWorkers = 10 :: Int
+numPages = 100 :: Int -- глубина обхода
+numWorkers = 10 :: Int -- количество потоков
 
-cacheDir = "pages-cache"
-indexDir = "index-cache"
+cacheDir = "pages-cache" -- каталог с кэшем страниц
+indexDir = "index-cache" -- каталог с индексами сайтов
 
 {-# NOINLINE consoleMutex #-}
 consoleMutex = unsafePerformIO $ newMVar () -- мьютекс, дабы не замешивался отладочный вывод
