@@ -6,6 +6,8 @@ import Data.Digest.Pure.MD5(md5)
 import Data.Strings(lazyBytes)
 
 import Network.URI
+import System.IO.Unsafe
+import Control.Concurrent.MVar
 
 type ErrorMsg = String
 type Fallible = Either ErrorMsg
@@ -19,8 +21,14 @@ numWorkers = 10 :: Int
 cacheDir = "pages-cache"
 indexDir = "index-cache"
 
-warn = hPutStrLn stderr
-info = warn
+{-# NOINLINE consoleMutex #-}
+consoleMutex = unsafePerformIO $ newMVar ()
+
+sync :: IO a -> IO a
+sync act = withMVar consoleMutex (\_ -> act)
+
+warn = sync . putStrLn
+info = sync . putStrLn
 
 debug :: String -> IO ()
 debug = const $ return () --info

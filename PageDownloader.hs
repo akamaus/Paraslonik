@@ -38,6 +38,7 @@ downloadContentType uri = do
                Nothing -> return $ Left $ "can't find redirect location" ++ (show r)
                Just str -> case parseURI str of
                  Just uri -> getContentType uri
+                 Nothing -> return $ Left "can't parse redirection url"
       _ -> return $ Left (rspReason r)
  `catch` (\(exn :: IOException) -> return $ Left "connection failed on probing")
 -- скачивает страницу, определяет кодировку
@@ -59,6 +60,7 @@ downloadURL uri =
                Nothing -> return $ Left (show r)
                Just str -> case parseURI str of
                  Just uri -> getPage uri
+                 Nothing -> return $ Left "can't parse redirection url"
            _ -> return $ Left (rspReason r)
  `catch` (\(exn :: IOException) -> return $ Left "connection failed")
    where determine_encoding resp = do
