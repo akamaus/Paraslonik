@@ -57,14 +57,8 @@ getIndex url use_cache = do
 -- строим индекс
 buildIndex :: URI -> IO GlobalIndex
 buildIndex url = do
-  results <- crawleSite numPages url
-  epages <- filterM (\(url, res) -> case res of
-                       Left err -> warn err >> return False
-                       Right res -> return True) results
-  let pages = map (\(u,r) -> case r of Right x -> (u,x)) epages
-      page_stats = map (\(u,t) -> trace ("processing " ++ show u) $ (u, pageProcessor t)) pages
-      index = indexPages page_stats
-  return index
+  runner <- mkSiteCrawler numPages url
+  runner emptyGlobalIndex (\(u,ts) -> (u, pageProcessor ts)) addPageToIndex
 
 -- обработчик отдельных страниц
 pageProcessor :: Tags -> PageIndex

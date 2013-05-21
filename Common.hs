@@ -15,7 +15,7 @@ type Fallible = Either ErrorMsg
 type Document = String
 type Word = String
 
-numPages = 100 :: Int
+numPages = 1000 :: Int
 numWorkers = 10 :: Int
 
 cacheDir = "pages-cache"
