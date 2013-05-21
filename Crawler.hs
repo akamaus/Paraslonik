@@ -16,7 +16,7 @@ import Control.Concurrent
 import Control.Exception(finally)
 import System.IO.Unsafe
 
-mkPool :: Show l => Int -> Int -> IO (l -> IO r -> IO (), IO [(l,r)])
+mkPool :: Int -> Int -> IO (l -> IO (Fallible r) -> IO (), IO [(l,Fallible r)])
 mkPool size max_tasks = do
   tasks <- newChan
   results <- newChan
@@ -35,8 +35,11 @@ mkPool size max_tasks = do
            _ | remaining == 0 -> warn "task quota exceeded" >> return []
              | num_tasks == 0 -> info "grabbing done" >> return []  -- закончили обработку, закончились задания
              | otherwise -> do r <- readChan results
+                               let remaining' = case r of -- в ограничении глубины учитываем только разобранные страницы
+                                     (_, Left _) -> remaining
+                                     (_, Right _) -> remaining - 1
                                modifyMVar_ numTasks (\c -> return (c-1))
-                               rest <- loop (remaining - 1) -- unsafeInterleaveIO loop
+                               rest <- loop remaining'
                                return $ r:rest
       putTask label act = do
         modifyMVar_ numTasks (\c -> return $ c+1)
@@ -56,24 +59,23 @@ crawleSite quota start_page = do
   run_pool
 
 -- Функция, анализирующая конкретный URL, выставляющая задачи на анализ обнаруженных ссылок
-crawler :: SeenStorage -> TaskAdder (Fallible Tags) -> URI -> IO (Either String Tags)
+crawler :: SeenStorage -> TaskAdder (Fallible Tags) -> URI -> IO (Fallible Tags)
 crawler seen add_task url = do
-  res <- getPage url
-  case res of
-    Right page -> do
-      let tag_stream = parseHtml $ page
-      let childs = S.fromList . getLinks url $ tag_stream
-      new_childs <- modifyMVar seen $ \seen_set -> do
-        let new = S.difference childs seen_set
-        return $ (S.union seen_set new, S.toList new)
-      mapM_ (\c -> do
-                ectype <- getContentType c
-                case ectype of
-                  Left err -> putStrLn $ "error probing " ++ show c ++ " : " ++ err
-                  Right ctype | map toLower ctype == "text/html" -> do debug $ "putting new page in queue " ++ show c
-                                                                       add_task c (crawler seen add_task c)
-                  Right ct -> info $ "skipping " ++ show c ++ " having content type " ++ ct) new_childs
-      return $ Right tag_stream
-    Left err -> do
-      warn $ "got error" ++ show err
-      return $ Left err
+  content_type <- getContentType url -- на первом этапе проверяем content type
+  case content_type of
+    Left err -> return $ Left err
+    Right ctype | map toLower ctype == "text/html" -> crawlePage
+    Right ctype -> return $ Left $ "skipping " ++ show url ++ " having content type " ++ ctype
+ where
+   crawlePage = do
+     res <- getPage url
+     case res of
+       Right page -> do
+         let tag_stream = parseHtml $ page
+             childs = S.fromList . getLinks url $ tag_stream
+         new_childs <- modifyMVar seen $ \seen_set -> do
+           let new = S.difference childs seen_set
+           return $ (S.union seen_set new, S.toList new)
+         mapM_ (\link -> add_task link (crawler seen add_task link)) new_childs
+         return $ Right tag_stream
+       Left err -> return $ Left err
