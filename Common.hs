@@ -13,6 +13,7 @@ type ErrorMsg = String
 type Fallible = Either ErrorMsg
 
 type Document = String
+type Title = String
 type Word = String
 
 numPages = 100 :: Int -- глубина обхода

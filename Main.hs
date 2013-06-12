@@ -18,7 +18,7 @@ import System.FilePath
 import Data.Binary
 import Data.DeriveTH
 
-$(derives [makeBinary] [''URIAuth, ''URI])
+$(derives [makeBinary] [''URIAuth, ''URI, ''GlobalData])
 
 main = do
   args <- getArgs
@@ -36,11 +36,11 @@ main = do
             mapM_ print $ findPages index (map cleanWord query)
           "show" -> do -- вывод базы
             index <- getIndex url True
-            printGlobalIndex index
+            printDatabase index
     _ -> warn usage
 
 -- получаем главный индекс (либо читаем с диска, либо строим)
-getIndex :: URI -> Bool ->  IO GlobalIndex
+getIndex :: URI -> Bool ->  IO GlobalData
 getIndex url use_cache = do
   createDirectoryIfMissing False indexDir
   let path = indexDir </> urlToFile url
@@ -52,14 +52,14 @@ getIndex url use_cache = do
                 return index
 
 -- строим индекс
-buildIndex :: URI -> IO GlobalIndex
+buildIndex :: URI -> IO GlobalData
 buildIndex url = do
   runner <- mkSiteCrawler numPages url
-  runner emptyGlobalIndex (\(u,ts) -> (u, pageProcessor ts)) addPageToIndex
+  runner emptyDatabase (\(u,ts) -> (u, pageProcessor ts)) addPage
 
 -- обработчик отдельных страниц
-pageProcessor :: Tags -> PageIndex
-pageProcessor = indexContent . getWords
+pageProcessor :: Tags -> PageData
+pageProcessor tags = PageData (indexContent . getWords $ tags) (getTitle tags)
 
 usage = unlines [ "Usage:"
                 , "crawler.exe <site url> reindex"

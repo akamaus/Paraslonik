@@ -54,6 +54,10 @@ proc_dots acc ("..":xs) = proc_dots (drop 1 acc) xs
 proc_dots acc (x:xs) = proc_dots (x:acc) xs
 proc_dots acc [] = reverse acc
 
+-- получаем заголовок страницы
+getTitle :: Tags -> Title
+getTitle tags = let title = cleanWord . innerText . takeWhile (not . isTagCloseName  "title") . dropWhile (not . isTagOpenName "title") $ tags
+                in length title `seq` title
 -- Читаем слова из потока тегов, чистим их от мусора
 getWords :: Tags -> [Word]
 getWords = map cleanWord . words . innerText
