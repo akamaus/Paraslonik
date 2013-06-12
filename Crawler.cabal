@@ -1,0 +1,22 @@
+name:                   Crawler
+cabal-version:          >= 1.2
+build-type:             Simple
+version:                0.2
+
+executable Crawler
+        main-is:        Main.hs
+        hs-source-dirs: .
+        build-depends:  base,
+                        binary,
+                        containers >= 0.4,
+                        derive,
+                        directory >= 1,
+                        encoding >= 0.6,
+                        filepath >= 1.3,
+                        HTTP >= 4000,
+                        network >= 2.4,
+                        pureMD5 >= 2.1,
+                        strings >= 1,
+                        tagsoup >= 0.12
+                        
+                        
