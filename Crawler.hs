@@ -13,7 +13,7 @@ import Control.Concurrent.MVar
 import Control.Concurrent.Chan
 
 import Control.Concurrent
-import Control.Exception(finally)
+import Control.Exception(SomeException,finally,handle)
 
 -- создаёт thread pool
 -- аргументы: размер, максимальное количество заданий (предел по глубине)
@@ -30,8 +30,9 @@ mkPool size max_tasks = do
   numTasks <- newMVar 0
   let worker = do
          (label, act) <- readChan tasks
-         res <- act
-         putMVar result (label, res) -- рабочий поток ждет, пока его результаты не понадобятся
+         handle (\(e :: SomeException) -> putMVar result (label, Left $ "Got exception: " ++ show e)) $ do
+           res <- act
+           putMVar result (label, res) -- рабочий поток ждет, пока его результаты не понадобятся
          worker
   worker_tids <- sequence . replicate size . forkIO $ worker -- запускаем рабочие лошадки
   let loop !remaining !total processor summer = do -- функция, перерабатывающая полученные результаты
