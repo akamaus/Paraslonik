@@ -6,7 +6,6 @@ import Common
 import Network.URI
 
 import Data.List(find, intercalate)
-import Data.Char(isAlpha)
 import Text.HTML.TagSoup
 import Data.Maybe(fromMaybe, catMaybes)
 import Control.Applicative
@@ -39,10 +38,10 @@ getTitle tags = let title = cleanWord . innerText . takeWhile (not . isTagCloseN
                 in length title `seq` title
 -- Читаем слова из потока тегов, чистим их от мусора
 getWords :: Tags -> [Word]
-getWords = map cleanWord . words . innerText
+getWords = filter (not . null) . map cleanWord . concatMap (words . innerText . pure)
 
 -- чистка слов от неалфавитных знаков, приведение к нижнему регистру
-cleanWord = reverse . dropWhile (not . isAlpha) . reverse . dropWhile (not . isAlpha)
+cleanWord = map toLower . reverse . dropWhile (not . isAlpha) . reverse . dropWhile (not . isAlpha)
 
 -- Вырезаем содежимое заданных тегов из документа
 dropTags :: (Eq str) => [str] -> [Tag str] -> [Tag str]

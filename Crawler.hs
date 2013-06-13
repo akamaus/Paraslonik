@@ -7,7 +7,6 @@ import PageDownloader
 import PageProcessor
 
 import qualified Data.Set as S
-import Data.Char(toLower)
 
 import Control.Concurrent.MVar
 import Control.Concurrent.Chan

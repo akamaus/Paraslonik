@@ -1,4 +1,4 @@
-module Common where
+module Common(module Common, toLower, isAlpha) where
 
 import System.IO
 
@@ -9,6 +9,8 @@ import Network.URI
 import System.IO.Unsafe
 import Control.Concurrent.MVar
 
+import Data.Char(isAlpha, toLower)
+
 type ErrorMsg = String
 type Fallible = Either ErrorMsg
 
@@ -16,7 +18,7 @@ type Document = String
 type Title = String
 type Word = String
 
-numPages = 100 :: Int -- глубина обхода
+numPages   = 10000 :: Int -- глубина обхода
 numWorkers = 10 :: Int -- количество потоков
 
 cacheDir = "pages-cache" -- каталог с кэшем страниц
