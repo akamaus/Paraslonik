@@ -23,8 +23,15 @@ getLinks site tags = procLinks site $ map (fromAttrib "href") . filter (~== "<a 
 
 procLinks :: URI -> [String] -> [URI]
 procLinks site =
-  filter (on (==) (fmap uriRegName . uriAuthority) site) . filter (null . uriFragment) .
-  map (relativeTo `flip` site) . catMaybes . map (parseURIReference . (\u -> if all isAllowedInURI u then u else escapeURIString isUnescapedInURI u))
+  map normalizeUrl . filter (on (==) (fmap uriRegName . uriAuthority) site) .
+  map (relativeTo `flip` site) .
+  catMaybes . map (parseURIReference . (\u -> if all isAllowedInURI u then u else escapeURIString isUnescapedInURI u))
+
+normalizeUrl u = hidePort $ u {uriQuery = "", uriFragment = ""}
+  where hidePort u | uriScheme u == "http:" = case uriAuthority u of
+          Just auth | uriPort auth == ":80" -> u {uriAuthority = Just auth {uriPort = ""}}
+          _ -> u
+        hidePort u = u
 
 -- получаем заголовок страницы
 getTitle :: Tags -> Title
