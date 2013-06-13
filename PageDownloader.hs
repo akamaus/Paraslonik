@@ -10,6 +10,7 @@ import Network.HTTP
 import Network.URI
 
 import Data.Encoding
+import Data.Encoding.UTF8
 
 import Data.List(tails,find,isPrefixOf)
 import Data.Char(toLower)
@@ -27,16 +28,18 @@ httpRequest :: RequestMethod -> URI -> (URI -> IO (Fallible a)) -> (Response Str
 httpRequest method url onRedirect onSuccess = do
   resp <- simpleHTTP ((mkRequest method url) :: Request String)
   case resp of
-    Left x -> return $ Left ("Error connecting: " ++ show x)
+    Left x -> return $ Left ("Error connecting to " ++ show url ++ ": " ++ show x)
     Right r -> case rspCode r of
       (2,_,_) -> return $ onSuccess r -- успех, вызываем переданную функцию обработки
       (3,_,_) ->
-             case findHeader HdrLocation r of
-               Nothing -> return $ Left $ "can't find redirect location" ++ (show r)
-               Just str -> case parseURI str of
-                 Just uri -> onRedirect uri -- редирект, переходим к новой урле
-                 Nothing -> return $ Left "can't parse redirection url"
-      _ -> return $ Left (rspReason r)
+             case (findHeader HdrLocation r, getEncoding r) of
+               (Nothing,_) -> return $ Left $ "can't find redirect location" ++ (show r)
+               (Just str, Just enc) -> let decoded = decodeString UTF8 str
+                                       in case procLinks url [decoded] of
+                 [new] ->  do info $ "link " ++ show url ++ " redirects to " ++ decodeString UTF8 str
+                              onRedirect new -- редирект, переходим к новой урле
+                 _ -> return $ Left $ "can't parse redirection url, " ++ str ++ " on page " ++ show url
+      _ -> return $ Left ("http error on " ++ show url ++ " : " ++ rspReason r)
  `catch` (\(exn :: IOException) -> return $ Left "connection failed on probing")
 
 -- опряделяет content-type HEAD запросом, позволяет не качать впустую картинки и прочую мелочь
@@ -50,17 +53,19 @@ downloadContentType url = httpRequest HEAD url getContentType extract
 downloadURL :: URI -> IO (Fallible Document)
 downloadURL url = httpRequest GET url getPage extractContents
  where extractContents r =
-         case determine_encoding r of
-           Just enc -> case decodeStringExplicit enc (rspBody r) of
+         case getEncoding r of
+           Just enc -> case decodeStringExplicit enc $ rspBody r of
              Left err -> Left $ "couldn't decode page:" ++ show err
              Right x ->  Right x
            Nothing -> Left "couldn't determine encoding"
-       determine_encoding resp = do -- определяем кодировку по заголовку Content-type, там бывает поле charset
-           str <- findHeader HdrContentType resp
-           let charset = "charset="
-           res <- find (charset `isPrefixOf`) . tails . map toLower $ str
-           let enc_str = map (\c -> case c of '-' -> '_'; _ -> c) . drop (length charset) $ res -- ищем charset в строке
-           encodingFromStringExplicit enc_str
+
+-- определяем кодировку по заголовку Content-type, там бывает поле charset
+getEncoding resp = do
+  str <- findHeader HdrContentType resp
+  let charset = "charset="
+  res <- find (charset `isPrefixOf`) . tails . map toLower $ str
+  let enc_str = map (\c -> case c of '-' -> '_'; _ -> c) . drop (length charset) $ res -- ищем charset в строке
+  encodingFromStringExplicit enc_str
 
 -- получает content-type документа или берет из кэша
 getContentType :: URI -> IO (Fallible String)
