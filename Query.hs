@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 -- выполнение поисковых запросов по базе
 module Query where
 
@@ -11,7 +13,8 @@ import Data.Function
 
 import qualified Data.Map as M
 import Data.List(sortBy, maximumBy)
-import Text.Printf
+import Data.Text.Format
+import qualified Data.Text.Lazy as T
 
 type Rating = Float
 
@@ -20,9 +23,13 @@ data Result = Exact URI Title Rating -- полное совпадение, по 
             | Partial URI Title Word Float -- частичное, по одному слову
 
 -- инстанс, для более аккуратного вывода
+
+textResult (Exact u t r) = format "{} {} {}" ((right 50 ' ' $ show u), (right 50 ' ' t), r)
+textResult (Partial u t w r) = format "{} {} {} {}" ((right 50 ' ' $ show u), (right 50 ' ' t), (right 15 ' ' w), r)
+
 instance Show Result where
-  show (Exact u t r) = printf "%-70s %-50s %f" (show u) t r
-  show (Partial u t w r) = printf "%-70s %-50s %-10s   %f" (show u) t w r
+  show = T.unpack . textResult
+
 
 -- отыскивает наиболее подходящие страницы
 findPages :: GlobalData -> [Word] -> [Result]

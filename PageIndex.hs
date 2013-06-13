@@ -13,12 +13,14 @@ import Data.List(foldl')
 import Text.Printf
 import Control.Applicative
 
+import qualified Data.Text.IO as T
+
 type PageIndex = M.Map Word Float -- статистика частот по одной странице
 data PageData = PageData {pdIndex :: !PageIndex, pdTitle :: !Title} -- собираемые данные по странице
 
 type WordStats = M.Map URI Float
 type GlobalIndex = M.Map Word WordStats
-type TitleIndex = M.Map URI String
+type TitleIndex = M.Map URI Word
 
 data GlobalData = GlobalData {gdIndex :: !GlobalIndex, gdTitles :: !TitleIndex}
 
@@ -47,7 +49,7 @@ addPage (GlobalData index titles) page@(url,page_data) = GlobalData (addPageToIn
 
 -- печатаем глобальный индекс
 printDatabase :: GlobalData -> IO ()
-printDatabase gd = mapM_ (\(word, page_index) -> putStrLn word >> printPageIndex page_index) $ M.toList $ gdIndex gd
+printDatabase gd = mapM_ (\(word, page_index) -> T.putStrLn word >> printPageIndex page_index) $ M.toList $ gdIndex gd
 
 -- печатаем информацию по слову (часть индекса)
 printPageIndex :: WordStats -> IO ()

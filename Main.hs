@@ -8,6 +8,8 @@ import PageIndex
 import Query
 import PageProcessor
 
+import qualified Data.Text as T
+
 import Network.URI
 
 import System.Environment(getArgs)
@@ -17,6 +19,8 @@ import System.Directory
 import System.FilePath
 
 import Data.Binary(Binary,encodeFile, decodeFile, put, get)
+import Data.Text.Binary
+
 import Data.DeriveTH
 
 $(derives [makeBinary] [''URIAuth, ''URI, ''GlobalData])
@@ -47,7 +51,7 @@ cmdParser = info (CmdLine <$> site_p <*> command_p) description
          command "reindex" (info (pure CmdReindex) ( progDesc "Reindex site"))
          <> command "show" (info (pure CmdShow) ( progDesc "Show database"))
          <> command "search" (info (CmdSearch <$>
-                                    many (cleanWord <$> argument str (metavar "QUERY")) )
+                                    many ((cleanWord . T.pack) <$> argument str (metavar "QUERY")) )
                               (progDesc "Search database")))
        description = fullDesc <> progDesc "A site crawler and query engine"
 

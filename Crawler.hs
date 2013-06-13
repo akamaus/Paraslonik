@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, BangPatterns #-}
+{-# LANGUAGE ScopedTypeVariables, BangPatterns, OverloadedStrings #-}
 
 module Crawler(mkSiteCrawler) where
 
@@ -7,6 +7,8 @@ import PageDownloader
 import PageProcessor
 
 import qualified Data.Set as S
+
+import qualified Data.Text as T
 
 import Control.Concurrent.MVar
 import Control.Concurrent.Chan
@@ -59,8 +61,8 @@ crawler seen add_task url = do
   content_type <- getContentType url -- на первом этапе проверяем content type
   case content_type of
     Left err -> return $ Left err
-    Right ctype | map toLower ctype == "text/html" -> crawlePage -- далее обходим страницу
-    Right ctype -> return $ Left $ "skipping " ++ show url ++ " having content type " ++ ctype
+    Right ctype | T.toLower ctype == "text/html" -> crawlePage -- далее обходим страницу
+    Right ctype -> return $ Left $ "skipping " ++ show url ++ " having content type " ++ T.unpack ctype
  where
    crawlePage = do
      res <- getPage url

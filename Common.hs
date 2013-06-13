@@ -1,6 +1,10 @@
-module Common(module Common, toLower, isAlpha) where
+module Common(module Common, (A.<$>), Text) where
+
+import qualified Control.Applicative as A
 
 import System.IO
+
+import Data.Text
 
 import Data.Digest.Pure.MD5(md5)
 import Data.Strings(lazyBytes)
@@ -9,14 +13,12 @@ import Network.URI
 import System.IO.Unsafe
 import Control.Concurrent.MVar
 
-import Data.Char(isAlpha, toLower)
-
 type ErrorMsg = String
 type Fallible = Either ErrorMsg
 
-type Document = String
-type Title = String
-type Word = String
+type Document = Text
+type Title = Text
+type Word = Text
 
 numPages   = 10000 :: Int -- глубина обхода
 numWorkers = 10 :: Int -- количество потоков
