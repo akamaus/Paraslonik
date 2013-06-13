@@ -2,7 +2,7 @@
 -- интерфейс программы
 module Main where
 
-import Common
+import Common hiding(info)
 import Crawler
 import PageIndex
 import Query
@@ -11,33 +11,46 @@ import PageProcessor
 import Network.URI
 
 import System.Environment(getArgs)
+import Options.Applicative
 
 import System.Directory
 import System.FilePath
 
-import Data.Binary
+import Data.Binary(Binary,encodeFile, decodeFile, put, get)
 import Data.DeriveTH
 
 $(derives [makeBinary] [''URIAuth, ''URI, ''GlobalData])
 
+data CmdLine = CmdLine { clUrl :: URI
+                       , clCmd :: Command
+                       } deriving Show
+
+data Command = CmdReindex | CmdSearch [Word] | CmdShow deriving Show
+
 main = do
-  args <- getArgs
-  case args of
-    (site:command:query) -> do
-      case parseURI site of
-        Nothing -> warn "can't parse site url" >> warn usage
-        Just url -> case command of
-          "reindex" -> do -- повторная индексация
-            getIndex url False
-            return ()
-          "search" -> do -- поиск слов
-            index <- getIndex url True
-            putStrLn "Search results:"
-            mapM_ print $ findPages index (map cleanWord query)
-          "show" -> do -- вывод базы
-            index <- getIndex url True
-            printDatabase index
-    _ -> warn usage
+  CmdLine url command <- execParser cmdParser
+  case command of
+    CmdReindex -> do -- повторная индексация
+      getIndex url False
+      return ()
+    CmdSearch query -> do -- поиск слов
+      index <- getIndex url True
+      putStrLn "Search results:"
+      mapM_ print $ findPages index query
+    CmdShow -> do -- вывод базы
+      index <- getIndex url True
+      printDatabase index
+
+cmdParser = info (CmdLine <$> site_p <*> command_p) description
+ where site_p = argument (\s -> str s >>= parseURI) (metavar "SITE")
+       command_p = subparser (
+         command "reindex" (info (pure CmdReindex) ( progDesc "Reindex site"))
+         <> command "show" (info (pure CmdShow) ( progDesc "Show database"))
+         <> command "search" (info (CmdSearch <$>
+                                    many (cleanWord <$> argument str (metavar "QUERY")) )
+                              (progDesc "Search database")))
+       description = fullDesc <> progDesc "A site crawler and query engine"
+
 
 -- получаем главный индекс (либо читаем с диска, либо строим)
 getIndex :: URI -> Bool ->  IO GlobalData
@@ -61,7 +74,7 @@ buildIndex url = do
 pageProcessor :: Tags -> PageData
 pageProcessor tags = PageData (indexContent . getWords $ tags) (getTitle tags)
 
-usage = unlines [ "Usage:"
+usage_msg = unlines [ "Usage:"
                 , "crawler.exe <site url> reindex"
                 , "crawler.exe <site url> search <query words>"
                 , "crawler.exe <site url> show"
