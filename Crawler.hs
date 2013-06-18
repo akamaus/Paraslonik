@@ -21,16 +21,6 @@ import Text.Regex.Base
 
 import Network.URI
 
-type Depth = Int
-data IndexRestrictions = IndexRestrictions {irNumWorkers :: Int,
-                                            irDepth :: Maybe Depth, irMaxPages :: Maybe Int,
-                                            irDomain :: Maybe String,
-                                            irQueryTest :: Maybe Regex,
-                                            irIgnoreQueryTest :: Maybe Regex
-                                            } deriving Show
-instance Show Regex where -- for debug
-  show _ = "<regex>"
-
 -- создаёт thread pool
 -- аргументы: размер, максимальное количество заданий (предел по глубине)
 -- результат: функция добавления новой задачи, функция запускающая работу и подсчитывающая итог
@@ -71,14 +61,22 @@ type SeenStorage = MVar (S.Set URI) -- тип, хранилище посещен
 type TaskAdder m a = URI -> m a -> m ()
 
 -- Функция, анализирующая конкретный URL, выставляющая задачи на анализ обнаруженных ссылок
-crawler :: IndexRestrictions -> Depth -> SeenStorage -> TaskAdder IO (Fallible Tags) -> URI -> Downloader Tags
-crawler restrictions depth seen add_task url = do
+crawler :: Depth -> SeenStorage -> TaskAdder IO (Fallible Tags) -> URI -> Downloader Tags
+crawler depth seen add_task url = do
   ctype <- getContentType url -- на первом этапе проверяем content type
   case () of
     _ | T.toLower ctype == "text/html" -> crawlePage -- далее обходим страницу
       | otherwise -> fail $ "skipping " ++ show url ++ " having content type " ++ T.unpack ctype
  where
    crawlePage = do
+     restrictions <- ask
+     let domainFilter link = testRestriction (irDomain restrictions) $ \dom ->
+           T.isSuffixOf (T.pack dom) (T.pack . uriRegName . fromMaybe (error $ "relative link" ++ show link) . uriAuthority $ link)
+         queryFilter link = testRestriction (irQueryTest restrictions) $ \query ->
+           match query (uriQuery link)
+         ignoreQueryFilter link = testRestriction (irIgnoreQueryTest restrictions) $ \iquery ->
+           not $ match iquery (uriQuery link)
+
      page <- getPage url
      let tag_stream = parseHtml $ page
          links = getLinks url $ tag_stream
@@ -89,15 +87,8 @@ crawler restrictions depth seen add_task url = do
        return $ (S.union seen_set new, S.toList new)
 
      when (testRestriction (irDepth restrictions) (depth <)) $ liftIO $ do
-       mapM_ (\link -> add_task link (runDownloader $ crawler restrictions (depth + 1) seen add_task link)) new_childs -- все ссылки помещаем в очередь на анализ
+       mapM_ (\link -> add_task link (runDownloader (crawler (depth + 1) seen add_task link) restrictions)) new_childs -- все ссылки помещаем в очередь на анализ
      return tag_stream -- возвращаем поток тегов для дальнейшей обработки
-
-   domainFilter link = testRestriction (irDomain restrictions) $ \dom ->
-     T.isSuffixOf (T.pack dom) (T.pack . uriRegName . fromMaybe (error $ "relative link" ++ show link) . uriAuthority $ link)
-   queryFilter link = testRestriction (irQueryTest restrictions) $ \query ->
-     match query (uriQuery link)
-   ignoreQueryFilter link = testRestriction (irIgnoreQueryTest restrictions) $ \iquery ->
-     not $ match iquery (uriQuery link)
 
 testRestriction mr test = case mr of
   Nothing -> True
@@ -109,5 +100,5 @@ mkSiteCrawler restrictions start_page = do
   (add_task, run_pool) <- mkPool (irNumWorkers restrictions) (irMaxPages restrictions) -- создали пул
   seen :: SeenStorage <- newMVar S.empty -- множество посещенных страниц, чтоб избежать петлей ссылок
 
-  add_task start_page (runDownloader $ crawler restrictions 1 seen add_task start_page) -- добавили первую страницу
+  add_task start_page (runDownloader (crawler 1 seen add_task start_page) restrictions) -- добавили первую страницу
   return $ run_pool -- вернули обработчик, его запустят выше

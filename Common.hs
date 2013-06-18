@@ -1,18 +1,18 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
-module Common(module Common,
+module Common(module Common, module Types,
               (A.<$>), (A.<*>),
               when, unless, liftIO,
               isJust, fromMaybe,
-              Text) where
+             ) where
+
+import Types
 
 import qualified Control.Applicative as A
 
 import System.IO
 import Control.Monad
 import Data.Maybe
-
-import Data.Text
 
 import Data.Digest.Pure.MD5(md5)
 import Data.Strings(lazyBytes)
@@ -22,17 +22,6 @@ import System.IO.Unsafe
 import Control.Concurrent.MVar
 
 import Control.Monad.Trans(liftIO)
-import Control.Monad.Error
-
-type ErrorMsg = String
-type Fallible = Either ErrorMsg
-type Downloader = ErrorT ErrorMsg IO
-
-runDownloader = runErrorT
-
-type Document = Text
-type Title = Text
-type Word = Text
 
 cacheDir = "pages-cache" -- каталог с кэшем страниц
 indexDir = "index-cache" -- каталог с индексами сайтов
