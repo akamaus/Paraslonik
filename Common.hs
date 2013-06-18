@@ -1,6 +1,8 @@
+{-# LANGUAGE NoMonomorphismRestriction #-}
+
 module Common(module Common,
               (A.<$>), (A.<*>),
-              unless,
+              when, unless, liftIO,
               isJust, fromMaybe,
               Text) where
 
@@ -19,8 +21,14 @@ import Network.URI
 import System.IO.Unsafe
 import Control.Concurrent.MVar
 
+import Control.Monad.Trans(liftIO)
+import Control.Monad.Error
+
 type ErrorMsg = String
 type Fallible = Either ErrorMsg
+type Downloader = ErrorT ErrorMsg IO
+
+runDownloader = runErrorT
 
 type Document = Text
 type Title = Text
@@ -35,10 +43,10 @@ consoleMutex = unsafePerformIO $ newMVar () -- мьютекс, дабы не з�
 sync :: IO a -> IO a
 sync act = withMVar consoleMutex (\_ -> act)
 
-warn = sync . putStrLn
-info = sync . putStrLn
+warn = liftIO . sync . putStrLn
+info = liftIO . sync . putStrLn
 
-debug :: String -> IO ()
+--debug :: String -> IO ()
 debug = const $ return () --info
 
 -- преобразование урла в имя файла, для целей кэширования

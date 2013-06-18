@@ -68,43 +68,40 @@ mkPool size max_tasks = do
   return (putTask, \total0 processor summer -> loop max_tasks total0 processor summer `finally` mapM_ killThread worker_tids)
 
 type SeenStorage = MVar (S.Set URI) -- тип, хранилище посещенных ссылок
-type TaskAdder a = URI -> IO a -> IO ()
+type TaskAdder m a = URI -> m a -> m ()
 
 -- Функция, анализирующая конкретный URL, выставляющая задачи на анализ обнаруженных ссылок
-crawler :: IndexRestrictions -> Depth -> SeenStorage -> TaskAdder (Fallible Tags) -> URI -> IO (Fallible Tags)
+crawler :: IndexRestrictions -> Depth -> SeenStorage -> TaskAdder IO (Fallible Tags) -> URI -> Downloader Tags
 crawler restrictions depth seen add_task url = do
-  content_type <- getContentType url -- на первом этапе проверяем content type
-  case content_type of
-    Left err -> return $ Left err
-    Right ctype | T.toLower ctype == "text/html" -> crawlePage -- далее обходим страницу
-    Right ctype -> return $ Left $ "skipping " ++ show url ++ " having content type " ++ T.unpack ctype
+  ctype <- getContentType url -- на первом этапе проверяем content type
+  case () of
+    _ | T.toLower ctype == "text/html" -> crawlePage -- далее обходим страницу
+      | otherwise -> fail $ "skipping " ++ show url ++ " having content type " ++ T.unpack ctype
  where
    crawlePage = do
-     res <- getPage url
-     case res of
-       Right page -> do
-         let tag_stream = parseHtml $ page
-             links = getLinks url $ tag_stream
-             filtered_links = filter ignoreQueryFilter . filter queryFilter . filter domainFilter $ links
-             childs = S.fromList $ filtered_links
-         new_childs <- modifyMVar seen $ \seen_set -> do -- фильтруем новые ссылки, обновляем множество посещенных страниц
-           let new = S.difference childs seen_set
-           return $ (S.union seen_set new, S.toList new)
+     page <- getPage url
+     let tag_stream = parseHtml $ page
+         links = getLinks url $ tag_stream
+         filtered_links = filter ignoreQueryFilter . filter queryFilter . filter domainFilter $ links
+         childs = S.fromList $ filtered_links
+     new_childs <- liftIO $ modifyMVar seen $ \seen_set -> do -- фильтруем новые ссылки, обновляем множество посещенных страниц
+       let new = S.difference childs seen_set
+       return $ (S.union seen_set new, S.toList new)
 
-         unless (Just False == ((<) <$> Just depth <*> irDepth restrictions)) $
-           mapM_ (\link -> add_task link (crawler restrictions (depth + 1) seen add_task link)) new_childs -- все ссылки помещаем в очередь на анализ
-         return $ Right tag_stream -- возвращаем поток тегов для дальнейшей обработки
-       Left err -> return $ Left err
+     when (testRestriction (irDepth restrictions) (depth <)) $ liftIO $ do
+       mapM_ (\link -> add_task link (runDownloader $ crawler restrictions (depth + 1) seen add_task link)) new_childs -- все ссылки помещаем в очередь на анализ
+     return tag_stream -- возвращаем поток тегов для дальнейшей обработки
 
-   domainFilter link = case irDomain restrictions of
-     Nothing -> True
-     Just dom -> T.isSuffixOf (T.pack dom) (T.pack . uriRegName . fromMaybe (error $ "relative link" ++ show link) . uriAuthority $ link)
-   queryFilter link = case irQueryTest restrictions of
-     Nothing -> True
-     Just query -> match query (uriQuery link)
-   ignoreQueryFilter link = case irIgnoreQueryTest restrictions of
-     Nothing -> True
-     Just iquery -> not $ match iquery (uriQuery link)
+   domainFilter link = testRestriction (irDomain restrictions) $ \dom ->
+     T.isSuffixOf (T.pack dom) (T.pack . uriRegName . fromMaybe (error $ "relative link" ++ show link) . uriAuthority $ link)
+   queryFilter link = testRestriction (irQueryTest restrictions) $ \query ->
+     match query (uriQuery link)
+   ignoreQueryFilter link = testRestriction (irIgnoreQueryTest restrictions) $ \iquery ->
+     not $ match iquery (uriQuery link)
+
+testRestriction mr test = case mr of
+  Nothing -> True
+  Just r -> test r
 
 -- Обёртка над пулом потоков, организующая обход сайта, ведущая учёт посещённых страниц
 mkSiteCrawler :: IndexRestrictions -> URI -> IO (t -> ((URI, Tags) -> p) -> (t -> p -> t) -> IO t)
@@ -112,5 +109,5 @@ mkSiteCrawler restrictions start_page = do
   (add_task, run_pool) <- mkPool (irNumWorkers restrictions) (irMaxPages restrictions) -- создали пул
   seen :: SeenStorage <- newMVar S.empty -- множество посещенных страниц, чтоб избежать петлей ссылок
 
-  add_task start_page (crawler restrictions 1 seen add_task start_page) -- добавили первую страницу
+  add_task start_page (runDownloader $ crawler restrictions 1 seen add_task start_page) -- добавили первую страницу
   return $ run_pool -- вернули обработчик, его запустят выше
