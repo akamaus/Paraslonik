@@ -26,17 +26,17 @@ instance TagRep T.Text where
 -- Разбирает Html в поток тегов
 parseHtml = dropTags ["script", "style"] . parseTags
 
--- Читает ссылки из потока тегов, приводит их к одному виду, выбрасывает внешние
+-- Читает ссылки из потока тегов, приводит их к одному виду
 getLinks :: URI -> Tags -> [URI]
 getLinks site tags = procLinks site $ map (T.unpack . fromAttrib "href") . filter (~== T.pack "<a href>") $ tags
 
 procLinks :: URI -> [String] -> [URI]
 procLinks site =
-  map normalizeUrl . filter (on (==) (fmap uriRegName . uriAuthority) site) .
-  map (relativeTo `flip` site) .
+  map normalizeUrl . filter httpUris . map (relativeTo `flip` site) .
   catMaybes . map (parseURIReference . (\u -> if all isAllowedInURI u then u else escapeURIString isUnescapedInURI u))
+ where httpUris uri = elem (uriScheme uri) ["http:", "https:"]
 
-normalizeUrl u = hidePort $ u {uriQuery = "", uriFragment = ""}
+normalizeUrl u = hidePort $ u {uriFragment = ""}
   where hidePort u | uriScheme u == "http:" = case uriAuthority u of
           Just auth | uriPort auth == ":80" -> u {uriAuthority = Just auth {uriPort = ""}}
           _ -> u

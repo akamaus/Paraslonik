@@ -1,8 +1,14 @@
-module Common(module Common, (A.<$>), Text) where
+module Common(module Common,
+              (A.<$>), (A.<*>),
+              unless,
+              isJust, fromMaybe,
+              Text) where
 
 import qualified Control.Applicative as A
 
 import System.IO
+import Control.Monad
+import Data.Maybe
 
 import Data.Text
 
@@ -19,9 +25,6 @@ type Fallible = Either ErrorMsg
 type Document = Text
 type Title = Text
 type Word = Text
-
-numPages   = 10000 :: Int -- глубина обхода
-numWorkers = 10 :: Int -- количество потоков
 
 cacheDir = "pages-cache" -- каталог с кэшем страниц
 indexDir = "index-cache" -- каталог с индексами сайтов

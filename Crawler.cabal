@@ -18,6 +18,8 @@ executable Crawler
                         network >= 2.4,
                         optparse-applicative >= 0.5,
                         pureMD5 >= 2.1,
+                        regex-base >= 0.9,
+                        regex-tdfa >= 1.1,
                         strings >= 1,
                         tagsoup >= 0.12,
                         text >= 0.11,
