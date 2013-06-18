@@ -66,8 +66,8 @@ cmdParser = info (CmdLine <$> site_p <*> command_p) description
          optional (option $ long "depth" <> short 'd' <> metavar "DEPTH") <*>
          optional (option $ long "max-pages" <> short 'p' <> metavar "PAGES") <*>
          optional (strOption $ long "domain" <> metavar "DOMAIN") <*>
-         optional ( (makeRegex :: String -> Regex) <$> (option $ long "query" <> metavar "REGEX")) <*>
-         optional ( (makeRegex :: String -> Regex) <$> (option $ long "ignore-query" <> metavar "REGEX"))
+         optional ( (makeRegex :: String -> Regex) <$> (strOption $ long "query" <> metavar "REGEX")) <*>
+         optional ( (makeRegex :: String -> Regex) <$> (strOption $ long "ignore-query" <> metavar "REGEX"))
 
 -- получаем главный индекс (либо читаем с диска, либо строим)
 storeIndex :: IndexRestrictions -> URI -> IO GlobalData
