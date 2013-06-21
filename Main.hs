@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell, ScopedTypeVariables #-}
 -- интерфейс программы
 module Main where
 
@@ -70,7 +70,8 @@ cmdParser = info (CmdLine <$> site_p <*> command_p) description
                               (progDesc "Search database")))
        description = fullDesc <> progDesc "A site crawler and query engine"
        index_restrictions = IndexRestrictions <$>
-         option (long "num-workers" <> short 'w' <> value 10 <> metavar "WORKERS") <*>
+         option (long "num-workers" <> short 'n' <> value 10 <> metavar "WORKERS") <*>
+         optional ((\(s :: Float) -> round $ s * 1000000) <$> option (long "wait" <> short 'w' <> metavar "SECONDS")) <*>
          strOption (long "agent-string" <> short 'a' <> value "Paraslonik" <> metavar "AGENT") <*>
          optional (option $ long "depth" <> short 'd' <> metavar "DEPTH") <*>
          optional (option $ long "max-pages" <> short 'p' <> metavar "PAGES") <*>

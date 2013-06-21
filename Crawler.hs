@@ -100,6 +100,15 @@ mkSiteCrawler restrictions start_page = do
   (add_task, run_pool) <- mkPool (irNumWorkers restrictions) (irMaxPages restrictions) -- создали пул
   seen :: SeenStorage <- newMVar S.empty -- множество посещенных страниц, чтоб избежать петлей ссылок
   stats_var <- newMVar emptyStats
-  let env0 = DownloaderEnv { deRestrictions = restrictions, deStats = stats_var }
+  wait_sem <- newMVar ()
+  let env0 = DownloaderEnv { deRestrictions = restrictions, deStats = stats_var, deWaitSemaphor = wait_sem}
   add_task start_page (runDownloader (crawler 1 seen add_task start_page) env0) -- добавили первую страницу
+  forkIO (waiter wait_sem) -- запустили поток, занимающийся учётом времени между обращениями к серверу
   return $ (run_pool, stats_var) -- вернули обработчик, его запустят выше
+ where
+   waiter sem = do
+     case irWaitTime restrictions of
+       Nothing -> return ()
+       Just t -> threadDelay t
+     putMVar sem ()
+     waiter sem

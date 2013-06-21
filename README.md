@@ -10,7 +10,8 @@ Paraslonik is a small web crawler accompanied with a query execution engine. It 
 First you need to build the index. It's done using `paraslonik reindex` subcommand.
 
 It accepts a number of options:
- + -w or --num-workers WORKERS - a number of worker threads crawling the site in parallel
+ + -n or --num-workers WORKERS - a number of worker threads crawling the site in parallel
+ + -w or --wait SECONDS - wait a specified number of seconds between subsequent requests
  + -A or --agent-string AGENT - an agent string sent in http requests
  + -d or --depth DEPTH - an integer restricting the link depth to be crawled
  + -p or --max-pages PAGES - restricts the maximum number of pages to ge crawled

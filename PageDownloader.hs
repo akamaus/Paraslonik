@@ -38,6 +38,8 @@ httpRequest method url onRedirect onSuccess = do
   agent <- asks (irAgent . deRestrictions)
   let req = (mkRequest method url) :: Request BS.ByteString
       req' = replaceHeader HdrUserAgent agent req
+  sem <- asks deWaitSemaphor
+  liftIO $ takeMVar sem
   resp <- liftIO $ simpleHTTP req' `catch` (\(exn :: IOException) -> return $ Left $ ErrorMisc "download failed")
   case resp of
     Left x -> fail $ "Error connecting to " ++ show url ++ ": " ++ show x

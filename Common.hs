@@ -1,6 +1,7 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
 module Common(module Common, module Types,
+              module Control.Concurrent.MVar,
               (A.<$>), (A.<*>),
               when, unless, liftIO,
               isJust, fromMaybe,
