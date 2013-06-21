@@ -32,8 +32,11 @@ consoleMutex = unsafePerformIO $ newMVar () -- мьютекс, дабы не з�
 sync :: IO a -> IO a
 sync act = withMVar consoleMutex (\_ -> act)
 
+err = liftIO . sync . putStrLn
 warn = liftIO . sync . putStrLn
 info = liftIO . sync . putStrLn
+
+printInfo = info
 
 --debug :: String -> IO ()
 debug = const $ return () --info
@@ -42,3 +45,4 @@ debug = const $ return () --info
 urlToFile :: URI -> FilePath
 urlToFile = show . md5 . lazyBytes . show
 
+fi = fromIntegral

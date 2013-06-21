@@ -8,6 +8,7 @@ import PageIndex
 import Query
 import PageProcessor
 
+import qualified Data.Label as L
 import qualified Data.Text as T
 
 import Network.URI
@@ -38,20 +39,27 @@ main = do
   CmdLine url command <- execParser cmdParser
   case command of
     CmdReindex restrictions -> do -- повторная индексация
-      storeIndex restrictions url
-      return ()
+      stats <- storeIndex restrictions url
+      printStats stats
     CmdSearch query -> do -- поиск слов
       withIndex url $ \index -> do
-        putStrLn "Search results:"
+        printInfo "Search results:"
         mapM_ print $ findPages index query
     CmdShow -> do -- вывод базы
       withIndex url printDatabase
  where withIndex url act = do
          mindex <- readIndex url
          case mindex of
-           Nothing -> putStrLn "Build index first"
+           Nothing -> err "Build index first"
            Just index -> act index
-
+       printStats stats = mapM_ (\(caption, getter) -> printInfo $ caption ++ " " ++ show (L.get getter stats))
+                            [ ("Pages analyzed", sPagesAnalyzed),
+                              ("Pages got from cache", sPagesGotFromCache),
+                              ("Bytes analyzed", sBytesAnalyzed),
+                              ("Bytes got from cache", sBytesGotFromCache),
+                              ("Links analyzed", sLinksAnalyzed),
+                              ("Redirects followed", sRedirectsFollowed)
+                            ]
 cmdParser = info (CmdLine <$> site_p <*> command_p) description
  where site_p = argument (\s -> str s >>= parseURI) (metavar "SITE")
        command_p = subparser (
@@ -70,13 +78,13 @@ cmdParser = info (CmdLine <$> site_p <*> command_p) description
          optional ( (makeRegex :: String -> Regex) <$> (strOption $ long "ignore-query" <> metavar "REGEX"))
 
 -- получаем главный индекс (либо читаем с диска, либо строим)
-storeIndex :: IndexRestrictions -> URI -> IO GlobalData
+storeIndex :: IndexRestrictions -> URI -> IO Statistics
 storeIndex restrictions url = do
   createDirectoryIfMissing False indexDir
   let path = indexDir </> urlToFile url
-  index <- buildIndex restrictions url
+  (index,stats) <- buildIndex restrictions url
   encodeFile path index
-  return index
+  return stats
 
 readIndex :: URI -> IO (Maybe GlobalData)
 readIndex url = do
@@ -87,10 +95,13 @@ readIndex url = do
     False -> return Nothing
 
 -- строим индекс
-buildIndex :: IndexRestrictions -> URI -> IO GlobalData
+buildIndex :: IndexRestrictions -> URI -> IO (GlobalData, Statistics)
 buildIndex restrictions url = do
-  runner <- mkSiteCrawler restrictions url
-  runner emptyDatabase (\(u,ts) -> (u, pageProcessor ts)) addPage
+  (runner,stats_var) <- mkSiteCrawler restrictions url
+  index <- runner emptyDatabase (\(u,ts) -> (u, pageProcessor ts)) addPage
+  stats <- readMVar stats_var
+  return (index,stats)
+
 
 -- обработчик отдельных страниц
 pageProcessor :: Tags -> PageData

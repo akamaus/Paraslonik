@@ -6,6 +6,9 @@ module PageDownloader(getPage, getContentType, URI) where
 import Common
 import PageProcessor
 
+import Prelude hiding(id,(.),catch)
+import Control.Category(id, (.))
+
 import Network.HTTP
 import Network.URI
 import Network.Stream
@@ -22,8 +25,6 @@ import Data.Text.ICU.Convert
 
 import Data.List(tails,find,isPrefixOf)
 import Data.Char(toLower)
-
-import Prelude hiding (catch)
 
 import Control.Exception (IOException, catch)
 import Control.Monad(liftM)
@@ -45,6 +46,8 @@ httpRequest method url onRedirect onSuccess = do
                Just str -> let decoded = decodeString UTF8 str
                            in case procLinks url [decoded] of
                  [new] ->  do info $ "link " ++ show url ++ " redirects to " ++ decoded
+                              stats <- asks deStats
+                              liftIO $ modifyMVar_ stats (return . modify sRedirectsFollowed (+1))
                               onRedirect new -- редирект, переходим к новой урле
                  _ -> fail $ "can't parse redirection url, " ++ str ++ " on page " ++ show url
       _ -> fail $ "http error on " ++ show url ++ " : " ++ rspReason r
@@ -81,12 +84,15 @@ getContentType url = do
   liftIO $ createDirectoryIfMissing False cacheDir
   let path = cacheDir </> urlToFile url <.> "head"
   cached <- liftIO $ doesFileExist path
-  case cached of
+  ct <- case cached of
     True -> do liftIO $ T.readFile path
     False -> do res <- downloadContentType url
                 info $ "probed page: " ++ show url
                 liftIO $ T.writeFile path res
                 return res
+  stats <- asks deStats
+  liftIO $ modifyMVar_ stats (return . modify sLinksAnalyzed (+1))
+  return ct
 
 -- скачивает страницу или возвращает из кэша
 getPage :: URI -> Downloader Document
@@ -94,10 +100,14 @@ getPage url = do
   liftIO $ createDirectoryIfMissing False cacheDir
   let path = cacheDir </> urlToFile url
   cached <- liftIO $ doesFileExist path
-  case cached of
+  (text, statsUp) <- case cached of
     True -> do info $ "got page from cache: " ++ show url
-               liftIO $ T.readFile path
-    False -> do res <- downloadURL url
+               text <- liftIO $ T.readFile path
+               return (text, modify sPagesGotFromCache (+1) . modify sBytesGotFromCache (+ fi (T.length text)))
+    False -> do text <- downloadURL url
                 info $ "downloaded page: " ++ show url
-                liftIO $  T.writeFile path res
-                return res
+                liftIO $  T.writeFile path text
+                return (text, id)
+  stats <- asks deStats
+  liftIO $ modifyMVar_ stats (return . modify sPagesAnalyzed (+1) . modify sBytesAnalyzed (+ fi (T.length text)) . statsUp)
+  return text

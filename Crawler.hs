@@ -10,7 +10,6 @@ import qualified Data.Set as S
 
 import qualified Data.Text as T
 
-import Control.Concurrent.MVar
 import Control.Concurrent.Chan
 
 import Control.Concurrent
@@ -69,7 +68,8 @@ crawler depth seen add_task url = do
       | otherwise -> fail $ "skipping " ++ show url ++ " having content type " ++ T.unpack ctype
  where
    crawlePage = do
-     restrictions <- ask
+     de <- ask
+     let restrictions = deRestrictions de
      let domainFilter link = testRestriction (irDomain restrictions) $ \dom ->
            T.isSuffixOf (T.pack dom) (T.pack . uriRegName . fromMaybe (error $ "relative link" ++ show link) . uriAuthority $ link)
          queryFilter link = testRestriction (irQueryTest restrictions) $ \query ->
@@ -87,7 +87,7 @@ crawler depth seen add_task url = do
        return $ (S.union seen_set new, S.toList new)
 
      when (testRestriction (irDepth restrictions) (depth <)) $ liftIO $ do
-       mapM_ (\link -> add_task link (runDownloader (crawler (depth + 1) seen add_task link) restrictions)) new_childs -- все ссылки помещаем в очередь на анализ
+       mapM_ (\link -> add_task link (runDownloader (crawler (depth + 1) seen add_task link) de)) new_childs -- все ссылки помещаем в очередь на анализ
      return tag_stream -- возвращаем поток тегов для дальнейшей обработки
 
 testRestriction mr test = case mr of
@@ -95,10 +95,11 @@ testRestriction mr test = case mr of
   Just r -> test r
 
 -- Обёртка над пулом потоков, организующая обход сайта, ведущая учёт посещённых страниц
-mkSiteCrawler :: IndexRestrictions -> URI -> IO (t -> ((URI, Tags) -> p) -> (t -> p -> t) -> IO t)
+mkSiteCrawler :: IndexRestrictions -> URI -> IO (t -> ((URI, Tags) -> p) -> (t -> p -> t) -> IO t, MVar Statistics)
 mkSiteCrawler restrictions start_page = do
   (add_task, run_pool) <- mkPool (irNumWorkers restrictions) (irMaxPages restrictions) -- создали пул
   seen :: SeenStorage <- newMVar S.empty -- множество посещенных страниц, чтоб избежать петлей ссылок
-
-  add_task start_page (runDownloader (crawler 1 seen add_task start_page) restrictions) -- добавили первую страницу
-  return $ run_pool -- вернули обработчик, его запустят выше
+  stats_var <- newMVar emptyStats
+  let env0 = DownloaderEnv { deRestrictions = restrictions, deStats = stats_var }
+  add_task start_page (runDownloader (crawler 1 seen add_task start_page) env0) -- добавили первую страницу
+  return $ (run_pool, stats_var) -- вернули обработчик, его запустят выше
