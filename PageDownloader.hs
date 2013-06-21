@@ -35,7 +35,10 @@ import System.FilePath
 -- Выполняет заданный http запрос, выполняет одно из двух действий в зависимости от кода успеха
 httpRequest :: RequestMethod -> URI -> (URI -> Downloader a) -> (Response BS.ByteString -> Downloader a) -> Downloader a
 httpRequest method url onRedirect onSuccess = do
-  resp <- liftIO $ simpleHTTP ((mkRequest method url) :: Request BS.ByteString) `catch` (\(exn :: IOException) -> return $ Left $ ErrorMisc "download failed")
+  agent <- asks (irAgent . deRestrictions)
+  let req = (mkRequest method url) :: Request BS.ByteString
+      req' = replaceHeader HdrUserAgent agent req
+  resp <- liftIO $ simpleHTTP req' `catch` (\(exn :: IOException) -> return $ Left $ ErrorMisc "download failed")
   case resp of
     Left x -> fail $ "Error connecting to " ++ show url ++ ": " ++ show x
     Right r -> case rspCode r of

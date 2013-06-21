@@ -24,6 +24,7 @@ instance Show Regex where -- for debug
   show _ = "<regex>"
 
 data IndexRestrictions = IndexRestrictions {irNumWorkers :: Int,
+                                            irAgent :: String,
                                             irDepth :: Maybe Depth, irMaxPages :: Maybe Int,
                                             irDomain :: Maybe String,
                                             irQueryTest :: Maybe Regex,

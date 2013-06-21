@@ -71,6 +71,7 @@ cmdParser = info (CmdLine <$> site_p <*> command_p) description
        description = fullDesc <> progDesc "A site crawler and query engine"
        index_restrictions = IndexRestrictions <$>
          option (long "num-workers" <> short 'w' <> value 10 <> metavar "WORKERS") <*>
+         strOption (long "agent-string" <> short 'a' <> value "Paraslonik" <> metavar "AGENT") <*>
          optional (option $ long "depth" <> short 'd' <> metavar "DEPTH") <*>
          optional (option $ long "max-pages" <> short 'p' <> metavar "PAGES") <*>
          optional (strOption $ long "domain" <> metavar "DOMAIN") <*>

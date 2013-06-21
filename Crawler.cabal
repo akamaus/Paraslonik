@@ -1,7 +1,7 @@
 name:                   Crawler
 cabal-version:          >= 1.2
 build-type:             Simple
-version:                0.4.2
+version:                0.5
 
 executable Crawler
         main-is:        Main.hs
